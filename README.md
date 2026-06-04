@@ -4,7 +4,7 @@
 
 Runtime distribution for [Starboard](https://github.com/get-starboard/starboard) — an Android app that runs PortMaster Linux games on ARM64 handhelds via proot.
 
-This repo hosts the Debian ARM64 rootfs that Starboard downloads and extracts on first launch. The rootfs provides the glibc + SDL2 + Mesa environment that PortMaster ports expect. It is published here automatically by CI from a private source repo.
+This repo hosts the Debian ARM64 rootfs that Starboard downloads and extracts on first launch. The rootfs provides the glibc + SDL2 + Mesa environment that PortMaster ports expect.
 
 ## Download
 
