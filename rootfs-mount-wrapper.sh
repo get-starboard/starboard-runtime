@@ -10,13 +10,19 @@
 #
 # mount's argument order is always: [flags...] <source> <destination>
 # so we grab the last two positional args regardless of what flags precede them.
+#
+# Every decision is logged. A silent wrapper makes "runtime already extracted",
+# "not a squashfs" and "never called" indistinguishable in game.log, which is
+# the first thing you need to tell apart when a port fails to find its runtime.
 
-[ $# -lt 2 ] && exit 0
+log() { echo "[Starboard] mount: $*" >&2; }
+
+[ $# -lt 2 ] && { log "too few args ($#) — nothing to do"; exit 0; }
 
 SRC="${@: -2:1}"   # second-to-last arg = source
 DST="${@: -1}"     # last arg           = destination
 
-[ -z "$SRC" ] && exit 0
+[ -z "$SRC" ] && { log "empty source — nothing to do"; exit 0; }
 
 # --- Squashfs detection (two methods) ---
 
@@ -51,15 +57,28 @@ if [ "$IS_SQ" = "1" ]; then
         NEED_EXTRACT=0
     fi
 
-    if [ "$NEED_EXTRACT" = "1" ]; then
-        echo "[Starboard] Extracting squashfs $SRC -> $DST" >&2
-        rm -rf "$DST"
-        unsquashfs -d "$DST" "$SRC" >&2
-        # Record which squashfs we extracted so we can detect stale extractions.
-        echo "$SRC_NAME" > "$SENTINEL"
+    if [ "$NEED_EXTRACT" = "0" ]; then
+        log "$SRC_NAME already extracted at $DST — skipping"
+        exit 0
     fi
+
+    log "extracting $SRC -> $DST"
+    rm -rf "$DST"
+    if ! unsquashfs -d "$DST" "$SRC" >&2; then
+        # Leave no sentinel: a partial extraction (ENOSPC, interrupted write)
+        # otherwise reads as complete forever after, and every later launch
+        # skips it — the port then fails on a missing binary with nothing in
+        # the log to say why. Clearing the directory forces a clean retry.
+        log "unsquashfs FAILED for $SRC_NAME — removing $DST so the next launch retries"
+        rm -rf "$DST"
+        exit 1
+    fi
+    echo "$SRC_NAME" > "$SENTINEL"
+    log "extracted $SRC_NAME to $DST"
+    exit 0
 fi
 
-# Always exit 0 — non-squashfs mounts are silently accepted so port scripts
-# don't abort on mounts we don't need to handle (proot takes care of them).
+# Non-squashfs mounts still succeed so port scripts don't abort on mounts we
+# don't need to handle (proot takes care of them) — but they say so in the log.
+log "not a squashfs, ignoring: $SRC -> $DST"
 exit 0
