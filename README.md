@@ -50,14 +50,14 @@ Any push to `main` (except README-only changes) triggers a build. Each successfu
 This repository's own contents — the `Dockerfile`, `build-rootfs.sh` and
 `rootfs-mount-wrapper.sh` — are GPL-3.0-or-later, matching the Starboard app.
 
-The rootfs it produces also carries third-party binaries under `runtimes/`,
-each redistributed unmodified with its upstream licence alongside it:
+The rootfs it produces also carries third-party binaries, each redistributed
+unmodified with its upstream licence alongside it:
 
-| Runtime | Licence | Notes |
+| Path | Licence | Notes |
 |---|---|---|
-| `gmloadernext` | GPL-2.0 | GMLoader-Next, the GameMaker runtime |
-| `gmtoolkit` | GPL-3.0-or-later (combined) | Offline GameMaker data-file converter. Mixed-licensed upstream: MIT, MPL-2.0 and GPL-3.0-or-later subtrees. `SOURCE.txt` names the upstream repository and build commit, as GPLv3 §6 requires |
-| `love_11.5` | zlib | LÖVE |
+| `runtimes/gmloadernext` | GPL-2.0 | GMLoader-Next, the GameMaker runtime |
+| `runtimes/love_11.5` | zlib | LÖVE |
+| `tools/gmtoolkit` | GPL-3.0-or-later (combined) | Offline GameMaker data-file converter. Mixed-licensed upstream: MIT, MPL-2.0 and GPL-3.0-or-later subtrees. `SOURCE.txt` names the upstream repository and build commit, as GPLv3 §6 requires |
 
 Everything else in the image comes from Debian packages under their own
 licences. The binaries are invoked over a process boundary (argv, exit codes),

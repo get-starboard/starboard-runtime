@@ -238,9 +238,9 @@ RUN chmod +x /usr/local/lib/starboard/gmloadernext.aarch64
 
 # gmtoolkit.aarch64 — offline data.win → game.droid converter, called by
 # RHH-Ports patchscripts.
-COPY runtimes/gmtoolkit/gmtoolkit.aarch64 /opt/system/Tools/PortMaster/gmtoolkit.aarch64
-COPY runtimes/gmtoolkit/LICENSE.txt /opt/system/Tools/PortMaster/gmtoolkit.LICENSE.txt
-COPY runtimes/gmtoolkit/SOURCE.txt /opt/system/Tools/PortMaster/gmtoolkit.SOURCE.txt
+COPY tools/gmtoolkit/gmtoolkit.aarch64 /opt/system/Tools/PortMaster/gmtoolkit.aarch64
+COPY tools/gmtoolkit/LICENSE.txt /opt/system/Tools/PortMaster/gmtoolkit.LICENSE.txt
+COPY tools/gmtoolkit/SOURCE.txt /opt/system/Tools/PortMaster/gmtoolkit.SOURCE.txt
 RUN chmod +x /opt/system/Tools/PortMaster/gmtoolkit.aarch64
 
 # mount/umount wrappers: proot cannot perform real kernel mounts so we intercept
