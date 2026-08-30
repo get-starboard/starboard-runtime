@@ -141,14 +141,8 @@ RUN echo 'deb [arch=arm64] https://archive.debian.org/debian bullseye main' \
 # (e.g. minetest's libcurl.so.4) require. Fully backwards-compatible with
 # anything compiled against 3.0.x.
 # trixie packages may carry a t64 suffix (64-bit time_t ABI transition).
-#
-# libstdc++6 comes from trixie for the same reason: bookworm ships GCC 12's
-# libstdc++.so.6.0.30, which tops out at GLIBCXX_3.4.30. Ports built on a newer
-# distro fail to start at all - Tunics! (Solarus) needs GLIBCXX_3.4.32 for both
-# its solarus-run binary and its bundled libsolarus.so.2, and dies in the
-# dynamic linker before any of our code runs. trixie's 14.2.0 build provides up
-# to GLIBCXX_3.4.33 and is backwards compatible, so older ports are unaffected.
-# It pulls libgcc-s1 to the matching version, which is expected and required.
+# libstdc++6: bookworm's GCC 12 build stops at GLIBCXX_3.4.30; ports built on a
+# newer distro need up to 3.4.33.
 RUN echo 'deb [arch=arm64] http://deb.debian.org/debian trixie main' \
         > /etc/apt/sources.list.d/trixie.list && \
     printf 'Package: *\nPin: release n=trixie\nPin-Priority: 100\n' \
