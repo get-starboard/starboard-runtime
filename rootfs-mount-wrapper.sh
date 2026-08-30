@@ -10,10 +10,6 @@
 #
 # mount's argument order is always: [flags...] <source> <destination>
 # so we grab the last two positional args regardless of what flags precede them.
-#
-# Every decision is logged. A silent wrapper makes "runtime already extracted",
-# "not a squashfs" and "never called" indistinguishable in game.log, which is
-# the first thing you need to tell apart when a port fails to find its runtime.
 
 log() { echo "[Starboard] mount: $*" >&2; }
 
@@ -65,10 +61,8 @@ if [ "$IS_SQ" = "1" ]; then
     log "extracting $SRC -> $DST"
     rm -rf "$DST"
     if ! unsquashfs -d "$DST" "$SRC" >&2; then
-        # Leave no sentinel: a partial extraction (ENOSPC, interrupted write)
-        # otherwise reads as complete forever after, and every later launch
-        # skips it — the port then fails on a missing binary with nothing in
-        # the log to say why. Clearing the directory forces a clean retry.
+        # Clear the directory and leave no sentinel, or a partial extraction
+        # reads as complete on every later launch.
         log "unsquashfs FAILED for $SRC_NAME — removing $DST so the next launch retries"
         rm -rf "$DST"
         exit 1
@@ -78,7 +72,7 @@ if [ "$IS_SQ" = "1" ]; then
     exit 0
 fi
 
-# Non-squashfs mounts still succeed so port scripts don't abort on mounts we
-# don't need to handle (proot takes care of them) — but they say so in the log.
+# Non-squashfs mounts succeed so port scripts don't abort on mounts proot
+# already handles.
 log "not a squashfs, ignoring: $SRC -> $DST"
 exit 0
