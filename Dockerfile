@@ -236,10 +236,8 @@ COPY runtimes/gmloadernext/gmloadernext.aarch64 /usr/local/lib/starboard/gmloade
 COPY runtimes/gmloadernext/LICENSE.txt /usr/local/lib/starboard/gmloadernext.LICENSE.txt
 RUN chmod +x /usr/local/lib/starboard/gmloadernext.aarch64
 
-# gmtoolkit.aarch64 — offline data.win → game.droid converter. RHH-Ports
-# patchscripts call it at first-run patch time and abort without it; PortMaster
-# ports use gmtoolkit.squashfs instead. GPL-3-or-later: LICENSE.txt and
-# SOURCE.txt ship beside the binary.
+# gmtoolkit.aarch64 — offline data.win → game.droid converter, called by
+# RHH-Ports patchscripts.
 COPY runtimes/gmtoolkit/gmtoolkit.aarch64 /opt/system/Tools/PortMaster/gmtoolkit.aarch64
 COPY runtimes/gmtoolkit/LICENSE.txt /opt/system/Tools/PortMaster/gmtoolkit.LICENSE.txt
 COPY runtimes/gmtoolkit/SOURCE.txt /opt/system/Tools/PortMaster/gmtoolkit.SOURCE.txt
