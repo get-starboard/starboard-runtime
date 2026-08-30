@@ -236,17 +236,10 @@ COPY runtimes/gmloadernext/gmloadernext.aarch64 /usr/local/lib/starboard/gmloade
 COPY runtimes/gmloadernext/LICENSE.txt /usr/local/lib/starboard/gmloadernext.LICENSE.txt
 RUN chmod +x /usr/local/lib/starboard/gmloadernext.aarch64
 
-# gmtoolkit.aarch64 — offline GameMaker data-file converter (NOT a runtime: it
-# rewrites data.win into game.droid, then exits). RHH-Ports patchscripts call
-# "$controlfolder/gmtoolkit.${DEVICE_ARCH}" during a port's first-run patch and
-# abort with "gmtoolkit.aarch64 was not found!" without it. 38 of RHH's 48
-# GameMaker ports invoke it; PortMaster ports use gmtoolkit.squashfs instead and
-# are unaffected.
-#
-# GPL-3.0-or-later as a combined work. Shipped with the upstream's own combined
-# licensing summary (LICENSE.txt, which carries the per-tree table, NOTICE
-# attributions and bundled-dependency list) and SOURCE.txt naming the upstream
-# repository and the commit this binary was built from, as GPLv3 §6 requires.
+# gmtoolkit.aarch64 — offline data.win → game.droid converter. RHH-Ports
+# patchscripts call it at first-run patch time and abort without it; PortMaster
+# ports use gmtoolkit.squashfs instead. GPL-3-or-later: LICENSE.txt and
+# SOURCE.txt ship beside the binary.
 COPY runtimes/gmtoolkit/gmtoolkit.aarch64 /opt/system/Tools/PortMaster/gmtoolkit.aarch64
 COPY runtimes/gmtoolkit/LICENSE.txt /opt/system/Tools/PortMaster/gmtoolkit.LICENSE.txt
 COPY runtimes/gmtoolkit/SOURCE.txt /opt/system/Tools/PortMaster/gmtoolkit.SOURCE.txt
