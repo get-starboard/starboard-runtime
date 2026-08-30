@@ -44,3 +44,22 @@ Output: `rootfs.tar.gz` in the repo root.
 ## CI
 
 Any push to `main` (except README-only changes) triggers a build. Each successful build creates a new versioned release tagged `starboard-rootfs-YYYYMMDD.N` and publishes it as the latest release on the public [get-starboard/starboard-runtime](https://github.com/get-starboard/starboard-runtime) repo (via the `RELEASE_REPO_TOKEN` fine-grained PAT).
+
+## Licensing
+
+This repository's own contents — the `Dockerfile`, `build-rootfs.sh` and
+`rootfs-mount-wrapper.sh` — are GPL-3.0-or-later, matching the Starboard app.
+
+The rootfs it produces also carries third-party binaries under `runtimes/`,
+each redistributed unmodified with its upstream licence alongside it:
+
+| Runtime | Licence | Notes |
+|---|---|---|
+| `gmloadernext` | GPL-2.0 | GMLoader-Next, the GameMaker runtime |
+| `gmtoolkit` | GPL-3.0-or-later (combined) | Offline GameMaker data-file converter. Mixed-licensed upstream: MIT, MPL-2.0 and GPL-3.0-or-later subtrees. `SOURCE.txt` names the upstream repository and build commit, as GPLv3 §6 requires |
+| `love_11.5` | zlib | LÖVE |
+
+Everything else in the image comes from Debian packages under their own
+licences. The binaries are invoked over a process boundary (argv, exit codes),
+not linked, so they and the scripts that call them remain independently
+licensed — "mere aggregation" under GPLv3 §5.

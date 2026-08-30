@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # build-rootfs.sh — Build the Debian ARM64 rootfs for Starboard.
 #
 # Requires:

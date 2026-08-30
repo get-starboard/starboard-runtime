@@ -1,0 +1,17 @@
+gmtoolkit — source availability notice (GPLv3 §6)
+
+The gmtoolkit.aarch64 binary in this directory is redistributed unmodified
+from an upstream release. It is licensed GPL-3.0-or-later as a combined work
+(see LICENSE.txt for the per-tree breakdown and third-party attributions).
+
+Upstream project : https://github.com/JeodC/gmtoolkit
+Built from commit: 3fc201802e7efe1cee151b9d6f2a55d9f6f2ac42
+Release          : "gmtoolkit latest"
+Release asset    : gmtoolkit-aarch64.zip
+Downloaded from  : https://github.com/JeodC/gmtoolkit/releases
+
+Complete corresponding source for this binary is available at the upstream
+repository above, at the commit named. LICENSE.txt as shipped in this
+directory is the upstream's own combined licensing summary, reproduced
+verbatim, and includes the full per-tree licensing table, the third-party
+acknowledgements (NOTICE), and the bundled dependency list.

@@ -233,7 +233,24 @@ RUN chmod +x /opt/system/Tools/PortMaster/runtimes/love_11.5/love.aarch64
 # and replaces those binaries with this one at each launch.
 RUN mkdir -p /usr/local/lib/starboard
 COPY runtimes/gmloadernext/gmloadernext.aarch64 /usr/local/lib/starboard/gmloadernext.aarch64
+COPY runtimes/gmloadernext/LICENSE.txt /usr/local/lib/starboard/gmloadernext.LICENSE.txt
 RUN chmod +x /usr/local/lib/starboard/gmloadernext.aarch64
+
+# gmtoolkit.aarch64 — offline GameMaker data-file converter (NOT a runtime: it
+# rewrites data.win into game.droid, then exits). RHH-Ports patchscripts call
+# "$controlfolder/gmtoolkit.${DEVICE_ARCH}" during a port's first-run patch and
+# abort with "gmtoolkit.aarch64 was not found!" without it. 38 of RHH's 48
+# GameMaker ports invoke it; PortMaster ports use gmtoolkit.squashfs instead and
+# are unaffected.
+#
+# GPL-3.0-or-later as a combined work. Shipped with the upstream's own combined
+# licensing summary (LICENSE.txt, which carries the per-tree table, NOTICE
+# attributions and bundled-dependency list) and SOURCE.txt naming the upstream
+# repository and the commit this binary was built from, as GPLv3 §6 requires.
+COPY runtimes/gmtoolkit/gmtoolkit.aarch64 /opt/system/Tools/PortMaster/gmtoolkit.aarch64
+COPY runtimes/gmtoolkit/LICENSE.txt /opt/system/Tools/PortMaster/gmtoolkit.LICENSE.txt
+COPY runtimes/gmtoolkit/SOURCE.txt /opt/system/Tools/PortMaster/gmtoolkit.SOURCE.txt
+RUN chmod +x /opt/system/Tools/PortMaster/gmtoolkit.aarch64
 
 # mount/umount wrappers: proot cannot perform real kernel mounts so we intercept
 # them here.  squashfs mounts are replaced by unsquashfs extraction (idempotent
