@@ -235,7 +235,15 @@ RUN chmod +x /opt/system/Tools/PortMaster/runtimes/love_11.5/love.aarch64
 # and replaces those binaries with this one at each launch.
 RUN mkdir -p /usr/local/lib/starboard
 COPY runtimes/gmloadernext/gmloadernext.aarch64 /usr/local/lib/starboard/gmloadernext.aarch64
+COPY runtimes/gmloadernext/LICENSE.txt /usr/local/lib/starboard/gmloadernext.LICENSE.txt
 RUN chmod +x /usr/local/lib/starboard/gmloadernext.aarch64
+
+# gmtoolkit.aarch64 — offline data.win → game.droid converter, called by
+# RHH-Ports patchscripts.
+COPY tools/gmtoolkit/gmtoolkit.aarch64 /opt/system/Tools/PortMaster/gmtoolkit.aarch64
+COPY tools/gmtoolkit/LICENSE.txt /opt/system/Tools/PortMaster/gmtoolkit.LICENSE.txt
+COPY tools/gmtoolkit/SOURCE.txt /opt/system/Tools/PortMaster/gmtoolkit.SOURCE.txt
+RUN chmod +x /opt/system/Tools/PortMaster/gmtoolkit.aarch64
 
 # mount/umount wrappers: proot cannot perform real kernel mounts so we intercept
 # them here.  squashfs mounts are replaced by unsquashfs extraction (idempotent

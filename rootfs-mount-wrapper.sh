@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Starboard mount wrapper — injected as /bin/mount inside proot.
 #
 # proot runs in userspace and cannot perform real kernel mounts, so any port
