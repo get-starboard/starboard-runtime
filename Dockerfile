@@ -141,13 +141,15 @@ RUN echo 'deb [arch=arm64] https://archive.debian.org/debian bullseye main' \
 # (e.g. minetest's libcurl.so.4) require. Fully backwards-compatible with
 # anything compiled against 3.0.x.
 # trixie packages may carry a t64 suffix (64-bit time_t ABI transition).
+# libstdc++6: bookworm's GCC 12 build stops at GLIBCXX_3.4.30; ports built on a
+# newer distro need up to 3.4.33.
 RUN echo 'deb [arch=arm64] http://deb.debian.org/debian trixie main' \
         > /etc/apt/sources.list.d/trixie.list && \
     printf 'Package: *\nPin: release n=trixie\nPin-Priority: 100\n' \
         > /etc/apt/preferences.d/trixie && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        -t trixie libssl3t64 && \
+        -t trixie libssl3t64 libstdc++6 && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     rm /etc/apt/sources.list.d/trixie.list /etc/apt/preferences.d/trixie
 
