@@ -11,12 +11,14 @@
 # mount's argument order is always: [flags...] <source> <destination>
 # so we grab the last two positional args regardless of what flags precede them.
 
-[ $# -lt 2 ] && exit 0
+log() { echo "[Starboard] mount: $*" >&2; }
+
+[ $# -lt 2 ] && { log "too few args ($#) — nothing to do"; exit 0; }
 
 SRC="${@: -2:1}"   # second-to-last arg = source
 DST="${@: -1}"     # last arg           = destination
 
-[ -z "$SRC" ] && exit 0
+[ -z "$SRC" ] && { log "empty source — nothing to do"; exit 0; }
 
 # --- Squashfs detection (two methods) ---
 
@@ -51,15 +53,26 @@ if [ "$IS_SQ" = "1" ]; then
         NEED_EXTRACT=0
     fi
 
-    if [ "$NEED_EXTRACT" = "1" ]; then
-        echo "[Starboard] Extracting squashfs $SRC -> $DST" >&2
-        rm -rf "$DST"
-        unsquashfs -d "$DST" "$SRC" >&2
-        # Record which squashfs we extracted so we can detect stale extractions.
-        echo "$SRC_NAME" > "$SENTINEL"
+    if [ "$NEED_EXTRACT" = "0" ]; then
+        log "$SRC_NAME already extracted at $DST — skipping"
+        exit 0
     fi
+
+    log "extracting $SRC -> $DST"
+    rm -rf "$DST"
+    if ! unsquashfs -d "$DST" "$SRC" >&2; then
+        # Clear the directory and leave no sentinel, or a partial extraction
+        # reads as complete on every later launch.
+        log "unsquashfs FAILED for $SRC_NAME — removing $DST so the next launch retries"
+        rm -rf "$DST"
+        exit 1
+    fi
+    echo "$SRC_NAME" > "$SENTINEL"
+    log "extracted $SRC_NAME to $DST"
+    exit 0
 fi
 
-# Always exit 0 — non-squashfs mounts are silently accepted so port scripts
-# don't abort on mounts we don't need to handle (proot takes care of them).
+# Non-squashfs mounts succeed so port scripts don't abort on mounts proot
+# already handles.
+log "not a squashfs, ignoring: $SRC -> $DST"
 exit 0
