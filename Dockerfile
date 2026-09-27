@@ -214,9 +214,8 @@ RUN mkdir -p /opt/sb-virgl/dri /opt/sb-virgl/lib /opt/sb-virgl/bin && \
 # - utils/ is sourced by ports that need first-run installation/patching.
 # - xdelta3 symlink: ports use $controlfolder/xdelta3 to patch game data files.
 # - 7zzs.aarch64 symlink: ports use it to extract bundled archives.
-# The control.txt / bind_directories.sh / harbourmaster / patcher.txt / device_info.txt
-# shim files are written by the app at first-launch (byte-array embedded in
-# libgame_bridge.so), so they're NOT created here.
+# The PortMaster shim files are written by the app at first launch, embedded in
+# libgame_bridge.so, so none of them are created here.
 RUN mkdir -p /opt/system/Tools/PortMaster/libs /opt/system/Tools/PortMaster/utils && \
     ln -sf /usr/bin/7zz     /opt/system/Tools/PortMaster/7zzs.aarch64 && \
     ln -sf /usr/bin/xdelta3 /opt/system/Tools/PortMaster/xdelta3
