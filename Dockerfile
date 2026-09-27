@@ -38,8 +38,7 @@ FROM --platform=linux/arm64 debian:bookworm-slim
 #   - SDL2 and companion libs  (video/audio/input)
 #   - Python 3                 (Python-based ports)
 #   - Common media/image libs  (ogg, vorbis, opus, mpg123, flac, png, jpeg)
-#   - speexdsp                 (audio resampling; OpenRCT2 links it and
-#                               CFWs ship it, so ports don't bundle it)
+#   - speexdsp                 (audio resampling)
 #   - Mesa GL software renderer (OpenGL ports via SDL_VIDEO_DRIVER=offscreen)
 #   - curl                     (some ports self-update or fetch assets)
 RUN apt-get update && \
