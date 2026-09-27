@@ -82,6 +82,16 @@ jobs:
           [ -d opt/system/Tools/PortMaster/utils ] || { echo "FAIL: missing utils/" >&2; exit 1; }
           echo "all PortMaster compat symlinks/dirs present"
 
+      - name: Verify system libraries ports link without bundling
+        run: |
+          set -e
+          mkdir -p /tmp/libs-verify
+          tar xzf rootfs.tar.gz -C /tmp/libs-verify --wildcards \
+              'usr/lib/aarch64-linux-gnu/libspeexdsp.so.1*'
+          [ -e /tmp/libs-verify/usr/lib/aarch64-linux-gnu/libspeexdsp.so.1 ] \
+            || { echo "FAIL: missing libspeexdsp.so.1" >&2; exit 1; }
+          echo "ok: libspeexdsp.so.1"
+
       - name: Rename artifact
         run: mv rootfs.tar.gz starboard-rootfs.tar.gz
 
