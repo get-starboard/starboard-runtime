@@ -41,6 +41,9 @@ FROM --platform=linux/arm64 debian:bookworm-slim
 #   - speexdsp                 (audio resampling)
 #   - Mesa GL software renderer (OpenGL ports via SDL_VIDEO_DRIVER=offscreen)
 #   - curl                     (some ports self-update or fetch assets)
+#   - Xvfb, matchbox, libXtst  (Westonpack games: Starboard runs them on a
+#                               virtual X server with a window manager that
+#                               fills the screen; libXtst replays input)
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         libsdl2-2.0-0 \
@@ -84,6 +87,9 @@ RUN apt-get update && \
         procps \
         binutils \
         retroarch \
+        xvfb \
+        matchbox-window-manager \
+        libxtst6 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

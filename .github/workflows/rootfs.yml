@@ -92,6 +92,19 @@ jobs:
             || { echo "FAIL: missing libspeexdsp.so.1" >&2; exit 1; }
           echo "ok: libspeexdsp.so.1"
 
+      - name: Verify the X server Westonpack games run on
+        run: |
+          set -e
+          mkdir -p /tmp/x-verify
+          tar xzf rootfs.tar.gz -C /tmp/x-verify --wildcards \
+              'usr/bin/Xvfb' 'usr/bin/matchbox-window-manager' \
+              'usr/lib/aarch64-linux-gnu/libXtst.so.6*'
+          for f in usr/bin/Xvfb usr/bin/matchbox-window-manager \
+                   usr/lib/aarch64-linux-gnu/libXtst.so.6; do
+            [ -e "/tmp/x-verify/$f" ] || { echo "FAIL: missing $f" >&2; exit 1; }
+            echo "ok: $f"
+          done
+
       - name: Rename artifact
         run: mv rootfs.tar.gz starboard-rootfs.tar.gz
 
