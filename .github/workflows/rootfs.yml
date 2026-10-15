@@ -62,6 +62,8 @@ jobs:
               'usr/lib/aarch64-linux-gnu/libGL.so.1' \
               'usr/lib/aarch64-linux-gnu/libOpenGL.so.0' \
               'usr/lib/aarch64-linux-gnu/libGLESv2.so' \
+              'usr/lib/aarch64-linux-gnu/libGLESv1_CM.so.1' \
+              'usr/lib/aarch64-linux-gnu/libGLESv1_CM.so' \
               'opt/system/Tools/PortMaster'
           cd /tmp/rootfs-verify
 
@@ -76,6 +78,8 @@ jobs:
           check_symlink usr/lib/aarch64-linux-gnu/libGL.so.1      libOSMesa.so.8
           check_symlink usr/lib/aarch64-linux-gnu/libOpenGL.so.0  libOSMesa.so.8
           check_symlink usr/lib/aarch64-linux-gnu/libGLESv2.so    libGLESv2.so.2
+          check_symlink usr/lib/aarch64-linux-gnu/libGLESv1_CM.so.1 libOSMesa.so.8
+          check_symlink usr/lib/aarch64-linux-gnu/libGLESv1_CM.so   libOSMesa.so.8
           check_symlink opt/system/Tools/PortMaster/xdelta3       /usr/bin/xdelta3
           check_symlink opt/system/Tools/PortMaster/7zzs.aarch64  /usr/bin/7zz
           [ -d opt/system/Tools/PortMaster/libs ]  || { echo "FAIL: missing libs/" >&2; exit 1; }
@@ -103,6 +107,20 @@ jobs:
                    usr/lib/aarch64-linux-gnu/libXtst.so.6; do
             [ -e "/tmp/x-verify/$f" ] || { echo "FAIL: missing $f" >&2; exit 1; }
             echo "ok: $f"
+          done
+
+      - name: Verify the GPU-mode GL libraries are real Mesa builds
+        run: |
+          set -e
+          mkdir -p /tmp/virgl-verify
+          tar xzf rootfs.tar.gz -C /tmp/virgl-verify \
+              'opt/sb-virgl/lib/libGL.so.1' 'opt/sb-virgl/lib/libGLESv1_CM.so.1'
+          for lib in libGL.so.1 libGLESv1_CM.so.1; do
+            soname=$(readelf -d "/tmp/virgl-verify/opt/sb-virgl/lib/$lib" \
+                | sed -n 's/.*Library soname: \[\(.*\)\]/\1/p')
+            [ "$soname" = "$lib" ] \
+              || { echo "FAIL: opt/sb-virgl/lib/$lib has soname '$soname'" >&2; exit 1; }
+            echo "ok: opt/sb-virgl/lib/$lib"
           done
 
       - name: Rename artifact
