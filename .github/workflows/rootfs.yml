@@ -5,10 +5,14 @@ on:
     branches: [main]
     paths-ignore:
       - 'README.md'
+  pull_request:
+    paths-ignore:
+      - 'README.md'
   workflow_dispatch:
 
+# One build per ref, so a pull request never cancels a build of main.
 concurrency:
-  group: rootfs-build
+  group: rootfs-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -123,16 +127,37 @@ jobs:
             echo "ok: opt/sb-virgl/lib/$lib"
           done
 
+      - name: Start Xvfb and matchbox in the image
+        # As Starboard's westonwrap.sh runs them: Xvfb with the real libGL
+        # preloaded, since libGL.so.1 is redirected to OSMesa, which lacks the
+        # glX symbols Xvfb links against.
+        run: |
+          docker run --rm --platform linux/arm64 starboard-rootfs:latest sh -c '
+            LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libGL.so.1.7.0 \
+              Xvfb :5 -nolisten tcp -screen 0 640x480x24 &
+            for i in $(seq 60); do
+              [ -S /tmp/.X11-unix/X5 ] && break
+              sleep 1
+            done
+            [ -S /tmp/.X11-unix/X5 ] || { echo "FAIL: Xvfb did not start" >&2; exit 1; }
+            DISPLAY=:5 timeout 10 matchbox-window-manager -use_titlebar no &
+            sleep 5
+            kill -0 $! || { echo "FAIL: matchbox-window-manager exited" >&2; exit 1; }
+            echo "ok: Xvfb and matchbox-window-manager run"'
+
       - name: Rename artifact
+        if: github.event_name != 'pull_request'
         run: mv rootfs.tar.gz starboard-rootfs.tar.gz
 
       - name: Generate SHA-256 sidecar
+        if: github.event_name != 'pull_request'
         # The app downloads <asset>.sha256 next to the tarball and verifies
         # the download (EngineSetupRepository in the app repo). Missing
         # sidecar is non-fatal there, so releases predating this keep working.
         run: sha256sum starboard-rootfs.tar.gz > starboard-rootfs.tar.gz.sha256
 
       - name: Publish release to public repo
+        if: github.event_name != 'pull_request'
         env:
           # Fine-grained PAT scoped to get-starboard/starboard-runtime with
           # Contents: read+write. Stored in this private repo as
