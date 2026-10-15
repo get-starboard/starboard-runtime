@@ -153,7 +153,7 @@ RUN echo 'deb [arch=arm64] http://deb.debian.org/debian trixie main' \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     rm /etc/apt/sources.list.d/trixie.list /etc/apt/preferences.d/trixie
 
-# Mesa-virgl client payload for the experimental hardware-GPU mode.
+# Mesa-virgl client payload for the hardware-GPU mode.
 # When the user toggles "Run on GPU" in the launcher, this directory is
 # preferred over the OSMesa software path via LD_LIBRARY_PATH ordering
 # (see native/portmaster-shims/launcher.sh in the app repo).
