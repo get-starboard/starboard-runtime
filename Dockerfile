@@ -41,6 +41,9 @@ FROM --platform=linux/arm64 debian:bookworm-slim
 #   - speexdsp                 (audio resampling)
 #   - Mesa GL software renderer (OpenGL ports via SDL_VIDEO_DRIVER=offscreen)
 #   - curl                     (some ports self-update or fetch assets)
+#   - Xvfb, matchbox, libXtst  (Westonpack games: Starboard runs them on a
+#                               virtual X server with a window manager that
+#                               fills the screen; libXtst replays input)
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         libsdl2-2.0-0 \
@@ -84,6 +87,9 @@ RUN apt-get update && \
         procps \
         binutils \
         retroarch \
+        xvfb \
+        matchbox-window-manager \
+        libxtst6 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -100,17 +106,9 @@ RUN apt-get update && \
 # libjpeg62-turbo (above) provides libjpeg.so.62 / LIBJPEG_6.2.
 # This adds libjpeg.so.8 / LIBJPEG_8.0 for ports that require it.
 COPY --from=libjpeg8-builder /build/libjpeg.so.8* /usr/lib/aarch64-linux-gnu/
-# Keep every symlink chain here at two hops or fewer. proot resolves paths
-# through its own translation layer and gives up at three chained hops with
-# errno 40 (ELOOP), where a normal loader allows about forty. libGLESv1_CM.so
-# used to point at libGLESv1_CM.so.1, which added a third hop on the way to
-# libOSMesa.so.8.0.0 and made every GLES1 port (Neverball, Neverputt) fail to
-# start. Both GLESv1 names carry the same OSMesa build, so the intermediate
-# link bought nothing but the conventional SONAME layering.
+
 RUN ldconfig && \
     ln -sf /usr/lib/aarch64-linux-gnu/dri /usr/lib/dri && \
-    ln -sf libOSMesa.so.8 /usr/lib/aarch64-linux-gnu/libGLESv1_CM.so.1 && \
-    ln -sf libOSMesa.so.8 /usr/lib/aarch64-linux-gnu/libGLESv1_CM.so && \
     ln -sf libdrm.so.2 /usr/lib/aarch64-linux-gnu/libdrm.so && \
     ln -sf libEGL.so.1 /usr/lib/aarch64-linux-gnu/libEGL.so
 
@@ -155,39 +153,21 @@ RUN echo 'deb [arch=arm64] http://deb.debian.org/debian trixie main' \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     rm /etc/apt/sources.list.d/trixie.list /etc/apt/preferences.d/trixie
 
-# Compat symlinks for ports that link against unversioned / wrong-soname libs.
-# Done AFTER all apt operations because apt-get install runs ldconfig, which
-# would restore the canonical libGL.so.1 → libGL.so.1.7.0 (GLVND) symlink and
-# undo our OSMesa redirect.
-#   libSDL2.so      — some ports link against the bare development name.
-#   libGL.so.1      — replace GLVND dispatch with OSMesa (headless proot has no
-#                     EGL/GLX context → GLVND silently drops GL calls → black screen).
-#   libOpenGL.so.0  — same OSMesa redirect for the modern OpenGL split package.
-#   libGLESv2.so    — unversioned soname for ports that link against it directly.
-#                     (libGLESv2.so.2 is overwritten by libGLESv2_wrap.so on-device.)
-RUN ln -sf libSDL2-2.0.so.0 /usr/lib/aarch64-linux-gnu/libSDL2.so && \
-    ln -sf libOSMesa.so.8   /usr/lib/aarch64-linux-gnu/libGL.so.1 && \
-    ln -sf libOSMesa.so.8   /usr/lib/aarch64-linux-gnu/libOpenGL.so.0 && \
-    ln -sf libGLESv2.so.2   /usr/lib/aarch64-linux-gnu/libGLESv2.so
-
-# Create directories that proot bind-mounts into.
-# These must exist as directories in the guest rootfs before proot starts.
-#   /home/user/port  — launcher script path (bind target for portDir)
-#   /roms/ports      — PortMaster convention: GAMEDIR="/$directory/ports/<name>"
-#                      with directory="roms"; portDir is also bound here
-#   /tmp/sb          — IPC files (fb, input.sock, game.log)
-#   /opt/sb          — nativeLibDir (libSDL2_starboard.so, libproot_loader.so, etc.)
-RUN mkdir -p /home/user/port /roms/ports /tmp/sb /opt/sb
-
-# Mesa-virgl client payload for the experimental hardware-GPU mode.
+# Mesa-virgl client payload for the hardware-GPU mode.
 # When the user toggles "Run on GPU" in the launcher, this directory is
 # preferred over the OSMesa software path via LD_LIBRARY_PATH ordering
-# (see launcher.sh template in app/src/main/cpp/game_bridge.cpp).
+# (see native/portmaster-shims/launcher.sh in the app repo).
 #   /opt/sb-virgl/dri  — Mesa virtio_gpu DRI driver + swrast bootstrap drivers
 #   /opt/sb-virgl/lib  — libGL/libEGL/libGLES* + their transitive deps (libdrm, llvm)
 #   /opt/sb-virgl/bin  — eglinfo / es2_info diagnostics
 # Source = stock Debian Mesa 22.3.6, same version used to build virglrenderer_sb,
 # so wire-protocol matches across the vtest socket.
+# Runs after every apt upgrade, so the copies match the libraries in
+# /usr/lib, and before the OSMesa redirects below, so it copies the real
+# GLVND and GLES libraries rather than the redirect targets.
+# libgles1 is unpacked into the payload only. Installed system-wide, a later
+# ldconfig would point libGLESv1_CM.so.1 back at it and undo the OSMesa
+# redirect GLES1 ports need on the CPU path.
 RUN mkdir -p /opt/sb-virgl/dri /opt/sb-virgl/lib /opt/sb-virgl/bin && \
     cp -L /usr/lib/aarch64-linux-gnu/dri/virtio_gpu_dri.so /opt/sb-virgl/dri/ && \
     cp -L /usr/lib/aarch64-linux-gnu/dri/swrast_dri.so /opt/sb-virgl/dri/ && \
@@ -199,16 +179,51 @@ RUN mkdir -p /opt/sb-virgl/dri /opt/sb-virgl/lib /opt/sb-virgl/bin && \
                   libEGL.so.1 libEGL_mesa.so.0 libgbm.so.1 libglapi.so.0 \
                   libdrm.so.2 libdrm_amdgpu.so.1 libdrm_radeon.so.1 libdrm_nouveau.so.2 \
                   libLLVM-15.so.1 libzstd.so.1 libelf.so.1 libsensors.so.5 libxml2.so.2 \
-                  libGLESv2.so.2 libGLESv1_CM.so.1; do \
+                  libGLESv2.so.2; do \
         src=$(find /usr/lib/aarch64-linux-gnu -maxdepth 2 -name "$lib" 2>/dev/null | head -1); \
         if [ -n "$src" ]; then cp -L "$src" /opt/sb-virgl/lib/; \
         else echo "WARN: $lib not found" >&2; fi; \
     done && \
+    cd /tmp && apt-get download libgles1 && \
+    dpkg-deb -x libgles1_*.deb /tmp/libgles1 && \
+    cp -L /tmp/libgles1/usr/lib/aarch64-linux-gnu/libGLESv1_CM.so.1 /opt/sb-virgl/lib/ && \
+    rm -rf /tmp/libgles1 /tmp/libgles1_*.deb && cd / && \
     cp -L /usr/bin/es2_info.aarch64-linux-gnu /opt/sb-virgl/bin/es2_info && \
     cp -L /usr/bin/eglinfo.aarch64-linux-gnu /opt/sb-virgl/bin/eglinfo && \
     chmod +x /opt/sb-virgl/bin/* && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     du -sh /opt/sb-virgl
+
+# Compat symlinks for ports that link against unversioned / wrong-soname libs.
+# Done AFTER all apt operations because apt-get install runs ldconfig, which
+# would restore the canonical libGL.so.1 → libGL.so.1.7.0 (GLVND) symlink and
+# undo our OSMesa redirect.
+#   libSDL2.so      — some ports link against the bare development name.
+#   libGL.so.1      — replace GLVND dispatch with OSMesa (headless proot has no
+#                     EGL/GLX context → GLVND silently drops GL calls → black screen).
+#   libOpenGL.so.0  — same OSMesa redirect for the modern OpenGL split package.
+#   libGLESv2.so    — unversioned soname for ports that link against it directly.
+#                     (libGLESv2.so.2 is overwritten by libGLESv2_wrap.so on-device.)
+#   libGLESv1_CM.so.1, libGLESv1_CM.so — OSMesa redirect for GLES1 ports.
+# Keep every symlink chain here at two hops or fewer. proot resolves paths
+# through its own translation layer and gives up at three chained hops with
+# errno 40 (ELOOP), where a normal loader allows about forty, so both GLESv1
+# names point straight at libOSMesa.so.8.
+RUN ln -sf libSDL2-2.0.so.0 /usr/lib/aarch64-linux-gnu/libSDL2.so && \
+    ln -sf libOSMesa.so.8   /usr/lib/aarch64-linux-gnu/libGL.so.1 && \
+    ln -sf libOSMesa.so.8   /usr/lib/aarch64-linux-gnu/libOpenGL.so.0 && \
+    ln -sf libGLESv2.so.2   /usr/lib/aarch64-linux-gnu/libGLESv2.so && \
+    ln -sf libOSMesa.so.8   /usr/lib/aarch64-linux-gnu/libGLESv1_CM.so.1 && \
+    ln -sf libOSMesa.so.8   /usr/lib/aarch64-linux-gnu/libGLESv1_CM.so
+
+# Create directories that proot bind-mounts into.
+# These must exist as directories in the guest rootfs before proot starts.
+#   /home/user/port  — launcher script path (bind target for portDir)
+#   /roms/ports      — PortMaster convention: GAMEDIR="/$directory/ports/<name>"
+#                      with directory="roms"; portDir is also bound here
+#   /tmp/sb          — IPC files (fb, input.sock, game.log)
+#   /opt/sb          — nativeLibDir (libSDL2_starboard.so, libproot_loader.so, etc.)
+RUN mkdir -p /home/user/port /roms/ports /tmp/sb /opt/sb
 
 # PortMaster control directory skeleton.
 # - libgl_default.txt is sourced by port scripts for GL settings.

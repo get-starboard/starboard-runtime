@@ -5,10 +5,14 @@ on:
     branches: [main]
     paths-ignore:
       - 'README.md'
+  pull_request:
+    paths-ignore:
+      - 'README.md'
   workflow_dispatch:
 
+# One build per ref, so a pull request never cancels a build of main.
 concurrency:
-  group: rootfs-build
+  group: rootfs-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -62,6 +66,8 @@ jobs:
               'usr/lib/aarch64-linux-gnu/libGL.so.1' \
               'usr/lib/aarch64-linux-gnu/libOpenGL.so.0' \
               'usr/lib/aarch64-linux-gnu/libGLESv2.so' \
+              'usr/lib/aarch64-linux-gnu/libGLESv1_CM.so.1' \
+              'usr/lib/aarch64-linux-gnu/libGLESv1_CM.so' \
               'opt/system/Tools/PortMaster'
           cd /tmp/rootfs-verify
 
@@ -76,6 +82,8 @@ jobs:
           check_symlink usr/lib/aarch64-linux-gnu/libGL.so.1      libOSMesa.so.8
           check_symlink usr/lib/aarch64-linux-gnu/libOpenGL.so.0  libOSMesa.so.8
           check_symlink usr/lib/aarch64-linux-gnu/libGLESv2.so    libGLESv2.so.2
+          check_symlink usr/lib/aarch64-linux-gnu/libGLESv1_CM.so.1 libOSMesa.so.8
+          check_symlink usr/lib/aarch64-linux-gnu/libGLESv1_CM.so   libOSMesa.so.8
           check_symlink opt/system/Tools/PortMaster/xdelta3       /usr/bin/xdelta3
           check_symlink opt/system/Tools/PortMaster/7zzs.aarch64  /usr/bin/7zz
           [ -d opt/system/Tools/PortMaster/libs ]  || { echo "FAIL: missing libs/" >&2; exit 1; }
@@ -92,16 +100,64 @@ jobs:
             || { echo "FAIL: missing libspeexdsp.so.1" >&2; exit 1; }
           echo "ok: libspeexdsp.so.1"
 
+      - name: Verify the X server Westonpack games run on
+        run: |
+          set -e
+          mkdir -p /tmp/x-verify
+          tar xzf rootfs.tar.gz -C /tmp/x-verify --wildcards \
+              'usr/bin/Xvfb' 'usr/bin/matchbox-window-manager' \
+              'usr/lib/aarch64-linux-gnu/libXtst.so.6*'
+          for f in usr/bin/Xvfb usr/bin/matchbox-window-manager \
+                   usr/lib/aarch64-linux-gnu/libXtst.so.6; do
+            [ -e "/tmp/x-verify/$f" ] || { echo "FAIL: missing $f" >&2; exit 1; }
+            echo "ok: $f"
+          done
+
+      - name: Verify the GPU-mode GL libraries are real Mesa builds
+        run: |
+          set -e
+          mkdir -p /tmp/virgl-verify
+          tar xzf rootfs.tar.gz -C /tmp/virgl-verify \
+              'opt/sb-virgl/lib/libGL.so.1' 'opt/sb-virgl/lib/libGLESv1_CM.so.1'
+          for lib in libGL.so.1 libGLESv1_CM.so.1; do
+            soname=$(readelf -d "/tmp/virgl-verify/opt/sb-virgl/lib/$lib" \
+                | sed -n 's/.*Library soname: \[\(.*\)\]/\1/p')
+            [ "$soname" = "$lib" ] \
+              || { echo "FAIL: opt/sb-virgl/lib/$lib has soname '$soname'" >&2; exit 1; }
+            echo "ok: opt/sb-virgl/lib/$lib"
+          done
+
+      - name: Start Xvfb and matchbox in the image
+        # As Starboard's westonwrap.sh runs them: Xvfb with the real libGL
+        # preloaded, since libGL.so.1 is redirected to OSMesa, which lacks the
+        # glX symbols Xvfb links against.
+        run: |
+          docker run --rm --platform linux/arm64 starboard-rootfs:latest sh -c '
+            LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libGL.so.1.7.0 \
+              Xvfb :5 -nolisten tcp -screen 0 640x480x24 &
+            for i in $(seq 60); do
+              [ -S /tmp/.X11-unix/X5 ] && break
+              sleep 1
+            done
+            [ -S /tmp/.X11-unix/X5 ] || { echo "FAIL: Xvfb did not start" >&2; exit 1; }
+            DISPLAY=:5 timeout 10 matchbox-window-manager -use_titlebar no &
+            sleep 5
+            kill -0 $! || { echo "FAIL: matchbox-window-manager exited" >&2; exit 1; }
+            echo "ok: Xvfb and matchbox-window-manager run"'
+
       - name: Rename artifact
+        if: github.event_name != 'pull_request'
         run: mv rootfs.tar.gz starboard-rootfs.tar.gz
 
       - name: Generate SHA-256 sidecar
+        if: github.event_name != 'pull_request'
         # The app downloads <asset>.sha256 next to the tarball and verifies
         # the download (EngineSetupRepository in the app repo). Missing
         # sidecar is non-fatal there, so releases predating this keep working.
         run: sha256sum starboard-rootfs.tar.gz > starboard-rootfs.tar.gz.sha256
 
       - name: Publish release to public repo
+        if: github.event_name != 'pull_request'
         env:
           # Fine-grained PAT scoped to get-starboard/starboard-runtime with
           # Contents: read+write. Stored in this private repo as
