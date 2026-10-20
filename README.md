@@ -55,7 +55,7 @@ unmodified with its upstream licence alongside it:
 
 | Path | Licence | Notes |
 |---|---|---|
-| `runtimes/gmloadernext` | GPL-2.0 | GMLoader-Next, the GameMaker runtime |
+| `runtimes/gmloadernext` | GPL-2.0-only | GMLoader-Next, the GameMaker runtime. `SOURCE.txt` names the upstream repository and build commit; `THIRD_PARTY_NOTICES.txt` covers the libraries compiled into it |
 | `runtimes/love_11.5` | zlib | LÖVE |
 | `tools/gmtoolkit` | GPL-3.0-or-later (combined) | Offline GameMaker data-file converter. Mixed-licensed upstream: MIT, MPL-2.0 and GPL-3.0-or-later subtrees. `SOURCE.txt` names the upstream repository and build commit, as GPLv3 §6 requires |
 
