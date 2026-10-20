@@ -113,6 +113,15 @@ jobs:
             echo "ok: $f"
           done
 
+      - name: Verify gmloadernext reads externalised .pvr textures
+        run: |
+          set -e
+          mkdir -p /tmp/gml-verify
+          tar xzf rootfs.tar.gz -C /tmp/gml-verify 'usr/local/lib/starboard/gmloadernext.aarch64'
+          grep -aq 'disable_texhack' /tmp/gml-verify/usr/local/lib/starboard/gmloadernext.aarch64 \
+            || { echo "FAIL: gmloadernext.aarch64 has no texhack support" >&2; exit 1; }
+          echo "ok: gmloadernext.aarch64 supports texhack"
+
       - name: Verify the GPU-mode GL libraries are real Mesa builds
         run: |
           set -e

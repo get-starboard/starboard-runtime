@@ -1,0 +1,16 @@
+gmloadernext — source availability notice (GPLv2)
+
+The gmloadernext.aarch64 binary in this directory is redistributed unmodified.
+It is licensed GPL-2.0 (see LICENSE.txt).
+
+Upstream project : https://github.com/JeodC/gmloader-next
+                   (fork of https://github.com/JohnnyonFlame/gmloader-next)
+Built from commit: 02ef2c15f8bb6b05cbc7c8375a7bacc6a073697c
+Build            : the fork's "gmloader-Next Build" workflow, run 34405750482,
+                   arm64 "Video Support" job (BUILD_DATE_20260909_211826)
+Taken from       : PortMaster's retrobowl.zip, release 2026-10-14_1439, which
+                   ships that build stripped
+                   https://github.com/PortsMaster/PortMaster-New/releases/download/2026-10-14_1439/retrobowl.zip
+
+Complete corresponding source for this binary is available at the upstream
+repository above, at the commit named.

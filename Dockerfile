@@ -245,13 +245,13 @@ COPY portmaster/libgl_default.txt /opt/system/Tools/PortMaster/libgl_default.txt
 COPY runtimes/love_11.5/ /opt/system/Tools/PortMaster/runtimes/love_11.5/
 RUN chmod +x /opt/system/Tools/PortMaster/runtimes/love_11.5/love.aarch64
 
-# gmloadernext.aarch64 — newer GMLoader-Next binary bundled for patching old ports.
-# Some ports ship a legacy 'gmloadernext' binary (no .aarch64 suffix) that uses
-# Android JNI audio and produces no sound outside Android.  game_bridge.cpp detects
-# and replaces those binaries with this one at each launch.
+# gmloadernext.aarch64 — the GMLoader-Next build the app swaps in for every port's
+# bundled gmloadernext(.aarch64) at launch (PortMaster and pmmv sources). It must
+# be at least as new as what ports ship: older builds lack .pvr textures (texhack).
 RUN mkdir -p /usr/local/lib/starboard
 COPY runtimes/gmloadernext/gmloadernext.aarch64 /usr/local/lib/starboard/gmloadernext.aarch64
 COPY runtimes/gmloadernext/LICENSE.txt /usr/local/lib/starboard/gmloadernext.LICENSE.txt
+COPY runtimes/gmloadernext/SOURCE.txt /usr/local/lib/starboard/gmloadernext.SOURCE.txt
 RUN chmod +x /usr/local/lib/starboard/gmloadernext.aarch64
 
 # gmtoolkit.aarch64 — offline data.win → game.droid converter, called by
