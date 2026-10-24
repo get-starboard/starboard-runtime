@@ -127,6 +127,25 @@ jobs:
             echo "ok: opt/sb-virgl/lib/$lib"
           done
 
+      - name: Verify every /opt/sb-mesa library resolves in the image
+        # Mesa is built on trixie against the rootfs's glibc. This catches a symbol
+        # the rootfs's libdrm, libstdc++ or glibc lacks, and a missing unversioned link.
+        run: |
+          docker run --rm --platform linux/arm64 starboard-rootfs:latest sh -c '
+            set -e
+            cd /opt/sb-mesa/lib
+            for f in *.so*; do
+              out=$(LD_LIBRARY_PATH=/opt/sb-mesa/lib ldd -r "$f" 2>&1)
+              if echo "$out" | grep -E "not found|undefined symbol"; then
+                echo "FAIL: /opt/sb-mesa/lib/$f" >&2; exit 1
+              fi
+            done
+            for l in libGL.so libEGL.so libGLESv2.so libGLESv1_CM.so; do
+              [ -e "$l" ] || { echo "FAIL: /opt/sb-mesa/lib/$l missing" >&2; exit 1; }
+            done
+            cat /opt/sb-mesa/VERSION
+            echo "ok: /opt/sb-mesa"'
+
       - name: Start Xvfb and matchbox in the image
         # As Starboard's westonwrap.sh runs them: Xvfb with the real libGL
         # preloaded, since libGL.so.1 is redirected to OSMesa, which lacks the

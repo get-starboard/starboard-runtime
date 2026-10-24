@@ -7,6 +7,24 @@
 #   bash scripts/build-rootfs.sh
 
 # ---------------------------------------------------------------------------
+# Stage: fetch Starboard's Mesa build for /opt/sb-mesa
+#
+# virgl, Zink and Turnip, built by get-starboard/starboard-third-party (mesa/) from
+# Mesa's release tarball and pinned here by SHA-256. Building Mesa here would run
+# under emulation on every runtime build.
+# ---------------------------------------------------------------------------
+FROM --platform=linux/arm64 debian:bookworm-slim AS sb-mesa-fetch
+ARG SB_MESA_TAG=mesa-26.2.4-sb1
+ARG SB_MESA_SHA256=4aabc4ff02e118b1141d01582a874bff578a6e88f8668a31e3a6a83b46e79ee3
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        curl ca-certificates xz-utils && \
+    curl -fsSL --retry 3 -o /tmp/sb-mesa.tar.xz \
+        "https://github.com/get-starboard/starboard-third-party/releases/download/${SB_MESA_TAG}/${SB_MESA_TAG}-aarch64.tar.xz" && \
+    echo "${SB_MESA_SHA256}  /tmp/sb-mesa.tar.xz" | sha256sum -c - && \
+    mkdir /out && tar -xJf /tmp/sb-mesa.tar.xz -C /out
+
+# ---------------------------------------------------------------------------
 # Stage 1: build libjpeg-turbo with JPEG 8 ABI
 #
 # Many PortMaster ports link against libjpeg.so.8 and require LIBJPEG_8.0
@@ -193,6 +211,35 @@ RUN mkdir -p /opt/sb-virgl/dri /opt/sb-virgl/lib /opt/sb-virgl/bin && \
     chmod +x /opt/sb-virgl/bin/* && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     du -sh /opt/sb-virgl
+
+# /opt/sb-mesa: the GPU-mode tree. The app prefers it to /opt/sb-virgl, which stays
+# one release for older app versions. Mesa's own files come from the sb-mesa-fetch
+# stage. GLVND, the GLES1 library, the Vulkan loader and the tools are added here from
+# Debian, before the OSMesa redirects below, so the real GLVND libraries are copied.
+# The unversioned names are for games that dlopen them (DarkPlaces opens
+# libGLESv2.so); without them the loader finds the rootfs's OSMesa wrapper.
+# Each link is one hop: proot gives up on chains of three.
+COPY --from=sb-mesa-fetch /out/opt/sb-mesa /opt/sb-mesa
+RUN for lib in libGL.so.1 libGLX.so.0 libGLdispatch.so.0 libEGL.so.1 libGLESv2.so.2; do \
+        cp -L "/usr/lib/aarch64-linux-gnu/$lib" /opt/sb-mesa/lib/; \
+    done && \
+    apt-get update && \
+    cd /tmp && apt-get download libgles1 libvulkan1 && \
+    dpkg-deb -x libgles1_*.deb /tmp/libgles1 && \
+    dpkg-deb -x libvulkan1_*.deb /tmp/libvulkan1 && \
+    cp -L /tmp/libgles1/usr/lib/aarch64-linux-gnu/libGLESv1_CM.so.1 /opt/sb-mesa/lib/ && \
+    cp -L /tmp/libvulkan1/usr/lib/aarch64-linux-gnu/libvulkan.so.1 /opt/sb-mesa/lib/ && \
+    rm -rf /tmp/libgles1 /tmp/libvulkan1 /tmp/*.deb && cd / && \
+    cd /opt/sb-mesa/lib && \
+    ln -sf libGL.so.1 libGL.so && \
+    ln -sf libEGL.so.1 libEGL.so && \
+    ln -sf libGLESv2.so.2 libGLESv2.so && \
+    ln -sf libGLESv1_CM.so.1 libGLESv1_CM.so && cd / && \
+    mkdir -p /opt/sb-mesa/bin && \
+    cp -L /usr/bin/es2_info.aarch64-linux-gnu /opt/sb-mesa/bin/es2_info && \
+    cp -L /usr/bin/eglinfo.aarch64-linux-gnu /opt/sb-mesa/bin/eglinfo && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    du -sh /opt/sb-mesa
 
 # Compat symlinks for ports that link against unversioned / wrong-soname libs.
 # Done AFTER all apt operations because apt-get install runs ldconfig, which
