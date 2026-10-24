@@ -143,6 +143,14 @@ jobs:
             for l in libGL.so libEGL.so libGLESv2.so libGLESv1_CM.so; do
               [ -e "$l" ] || { echo "FAIL: /opt/sb-mesa/lib/$l missing" >&2; exit 1; }
             done
+            # The GLVND copies, not the OSMesa redirects in /usr/lib.
+            for l in libGL.so.1 libEGL.so.1 libGLESv2.so.2 libGLESv1_CM.so.1; do
+              so=$(readelf -d "$l" | sed -n "s/.*Library soname: \[\(.*\)\]/\1/p")
+              [ "$so" = "$l" ] || { echo "FAIL: /opt/sb-mesa/lib/$l has soname $so" >&2; exit 1; }
+            done
+            for f in vulkan-loader-copyright glvnd-copyright mesa-utils-copyright mesa-license.rst; do
+              [ -s "../licenses/$f" ] || { echo "FAIL: /opt/sb-mesa/licenses/$f missing" >&2; exit 1; }
+            done
             cat /opt/sb-mesa/VERSION
             echo "ok: /opt/sb-mesa"'
 
