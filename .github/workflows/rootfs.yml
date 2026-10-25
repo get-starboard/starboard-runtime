@@ -190,13 +190,12 @@ jobs:
             echo "created=$CREATED"
           } >> "$GITHUB_OUTPUT"
 
-  # Separate from build-and-publish so a Discord failure leaves the release
-  # published, and "Re-run failed jobs" retries only the post. The tag comes
-  # from the job output: a retry bumps run_attempt, which the tag contains.
+  # Takes the tag from build-and-publish's output, because a retry bumps
+  # run_attempt and the tag contains it.
   announce:
     name: Announce Release On Discord
     needs: build-and-publish
-    if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.build-and-publish.outputs.created == 'true' }}
+    if: ${{ github.ref == 'refs/heads/main' && needs.build-and-publish.outputs.created == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
