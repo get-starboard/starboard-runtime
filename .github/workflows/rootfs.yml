@@ -22,6 +22,10 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.publish.outputs.tag }}
+      url: ${{ steps.publish.outputs.url }}
+      created: ${{ steps.publish.outputs.created }}
 
     steps:
       - name: Check out repository
@@ -157,6 +161,7 @@ jobs:
         run: sha256sum starboard-rootfs.tar.gz > starboard-rootfs.tar.gz.sha256
 
       - name: Publish release to public repo
+        id: publish
         if: github.event_name != 'pull_request'
         env:
           # Fine-grained PAT scoped to get-starboard/starboard-runtime with
@@ -167,6 +172,7 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
           RELEASE_REPO: get-starboard/starboard-runtime
         run: |
+          CREATED=false
           if gh release view "$TAG" --repo "$RELEASE_REPO" >/dev/null 2>&1; then
             gh release upload "$TAG" starboard-rootfs.tar.gz starboard-rootfs.tar.gz.sha256 \
               --repo "$RELEASE_REPO" --clobber
@@ -176,4 +182,37 @@ jobs:
               --title "$TAG" \
               --notes "Automated rootfs build from commit ${{ github.sha }}" \
               --latest
+            CREATED=true
           fi
+          {
+            echo "tag=$TAG"
+            echo "url=https://github.com/$RELEASE_REPO/releases/tag/$TAG"
+            echo "created=$CREATED"
+          } >> "$GITHUB_OUTPUT"
+
+  # Separate from build-and-publish so a Discord failure leaves the release
+  # published, and "Re-run failed jobs" retries only the post. The tag comes
+  # from the job output: a retry bumps run_attempt, which the tag contains.
+  announce:
+    name: Announce Release On Discord
+    needs: build-and-publish
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.build-and-publish.outputs.created == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+
+    steps:
+      - name: Post to Discord
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK_URL }}
+          TAG: ${{ needs.build-and-publish.outputs.tag }}
+          RELEASE_URL: ${{ needs.build-and-publish.outputs.url }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "DISCORD_RELEASE_WEBHOOK_URL is not configured" >&2
+            exit 1
+          fi
+          jq -n --arg tag "$TAG" --arg url "$RELEASE_URL" '
+            {content: "**Starboard runtime \($tag) has dropped!** 🚀\n\($url)",
+             allowed_mentions: {parse: []}}' |
+            curl -fsS -H 'Content-Type: application/json' --data @- "$WEBHOOK_URL"
