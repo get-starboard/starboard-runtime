@@ -173,15 +173,25 @@ jobs:
             echo "ok: Xvfb and matchbox-window-manager run"'
 
       - name: Rename artifact
-        if: github.event_name != 'pull_request'
         run: mv rootfs.tar.gz starboard-rootfs.tar.gz
 
       - name: Generate SHA-256 sidecar
-        if: github.event_name != 'pull_request'
         # The app downloads <asset>.sha256 next to the tarball and verifies
         # the download (EngineSetupRepository in the app repo). Missing
         # sidecar is non-fatal there, so releases predating this keep working.
         run: sha256sum starboard-rootfs.tar.gz > starboard-rootfs.tar.gz.sha256
+
+      - name: Upload pull request build
+        if: github.event_name == 'pull_request'
+        # For testing a pull request's rootfs on a device. Never published.
+        uses: actions/upload-artifact@v4
+        with:
+          name: starboard-rootfs-pr${{ github.event.pull_request.number }}
+          path: |
+            starboard-rootfs.tar.gz
+            starboard-rootfs.tar.gz.sha256
+          compression-level: 0
+          retention-days: 14
 
       - name: Publish release to public repo
         if: github.event_name != 'pull_request'
