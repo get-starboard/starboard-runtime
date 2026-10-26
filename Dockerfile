@@ -9,14 +9,14 @@
 # ---------------------------------------------------------------------------
 # Stage: fetch Starboard's Mesa build for /opt/sb-mesa
 #
-# virgl, Zink and Turnip, built by get-starboard/starboard-third-party (mesa/) from
-# Mesa's release tarball and pinned here by SHA-256. Building Mesa here would run
+# virgl, Zink, llvmpipe and Turnip, built by get-starboard/starboard-third-party (mesa/)
+# from Mesa's release tarball and pinned here by SHA-256. Building Mesa here would run
 # under emulation on every runtime build.
 # ---------------------------------------------------------------------------
 # Runs natively: it only downloads and unpacks, so it needs no emulation.
 FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS sb-mesa-fetch
-ARG SB_MESA_TAG=mesa-26.2.4-sb1
-ARG SB_MESA_SHA256=6ef06048e5b152b50ef920359067ea6a43c253976f1bf6bd09b15866bdcfa2b2
+ARG SB_MESA_TAG=mesa-26.2.4-sb2
+ARG SB_MESA_SHA256=15e9d58ca404394ee9f616919b36fbcb9ff3912570483de92fda9920688ac424
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         curl ca-certificates xz-utils && \

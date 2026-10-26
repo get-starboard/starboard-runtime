@@ -148,9 +148,14 @@ jobs:
               so=$(readelf -d "$l" | sed -n "s/.*Library soname: \[\(.*\)\]/\1/p")
               [ "$so" = "$l" ] || { echo "FAIL: /opt/sb-mesa/lib/$l has soname $so" >&2; exit 1; }
             done
-            for f in vulkan-loader-copyright glvnd-copyright mesa-utils-copyright mesa-license.rst; do
+            for f in vulkan-loader-copyright glvnd-copyright mesa-utils-copyright mesa-license.rst llvm-copyright; do
               [ -s "../licenses/$f" ] || { echo "FAIL: /opt/sb-mesa/licenses/$f missing" >&2; exit 1; }
             done
+            # The app turns on automatic video path selection only when DRIVERS lists llvmpipe.
+            grep -qw llvmpipe ../DRIVERS || { echo "FAIL: /opt/sb-mesa/DRIVERS lacks llvmpipe" >&2; exit 1; }
+            out=$(LD_LIBRARY_PATH=/opt/sb-mesa/lib __EGL_VENDOR_LIBRARY_DIRS=/opt/sb-mesa/share/glvnd/egl_vendor.d \
+              GALLIUM_DRIVER=llvmpipe /opt/sb-mesa/bin/eglinfo -p surfaceless 2>&1)
+            echo "$out" | grep -q "llvmpipe (LLVM" || { echo "$out" >&2; echo "FAIL: no llvmpipe EGL context" >&2; exit 1; }
             cat /opt/sb-mesa/VERSION
             echo "ok: /opt/sb-mesa"'
 
