@@ -7,6 +7,25 @@
 #   bash scripts/build-rootfs.sh
 
 # ---------------------------------------------------------------------------
+# Stage: fetch Starboard's Mesa build for /opt/sb-mesa
+#
+# virgl, Zink, llvmpipe and Turnip, built by get-starboard/starboard-third-party (mesa/)
+# from Mesa's release tarball and pinned here by SHA-256. Building Mesa here would run
+# under emulation on every runtime build.
+# ---------------------------------------------------------------------------
+# Runs natively: it only downloads and unpacks, so it needs no emulation.
+FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS sb-mesa-fetch
+ARG SB_MESA_TAG=mesa-26.2.4-sb2
+ARG SB_MESA_SHA256=15e9d58ca404394ee9f616919b36fbcb9ff3912570483de92fda9920688ac424
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        curl ca-certificates xz-utils && \
+    curl -fsSL --retry 3 -o /tmp/sb-mesa.tar.xz \
+        "https://github.com/get-starboard/starboard-third-party/releases/download/${SB_MESA_TAG}/${SB_MESA_TAG}-aarch64.tar.xz" && \
+    echo "${SB_MESA_SHA256}  /tmp/sb-mesa.tar.xz" | sha256sum -c - && \
+    mkdir /out && tar -xJf /tmp/sb-mesa.tar.xz -C /out
+
+# ---------------------------------------------------------------------------
 # Stage 1: build libjpeg-turbo with JPEG 8 ABI
 #
 # Many PortMaster ports link against libjpeg.so.8 and require LIBJPEG_8.0
@@ -142,7 +161,8 @@ RUN echo 'deb [arch=arm64] https://archive.debian.org/debian bullseye main' \
 # anything compiled against 3.0.x.
 # trixie packages may carry a t64 suffix (64-bit time_t ABI transition).
 # libstdc++6: bookworm's GCC 12 build stops at GLIBCXX_3.4.30; ports built on a
-# newer distro need up to 3.4.33.
+# newer distro need up to 3.4.33. It also brings trixie's libc6 (glibc 2.41), which
+# /opt/sb-mesa needs (GLIBC_2.38): don't pin libc6 back to bookworm.
 RUN echo 'deb [arch=arm64] http://deb.debian.org/debian trixie main' \
         > /etc/apt/sources.list.d/trixie.list && \
     printf 'Package: *\nPin: release n=trixie\nPin-Priority: 100\n' \
@@ -153,15 +173,12 @@ RUN echo 'deb [arch=arm64] http://deb.debian.org/debian trixie main' \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     rm /etc/apt/sources.list.d/trixie.list /etc/apt/preferences.d/trixie
 
-# Mesa-virgl client payload for the hardware-GPU mode.
-# When the user toggles "Run on GPU" in the launcher, this directory is
-# preferred over the OSMesa software path via LD_LIBRARY_PATH ordering
-# (see native/portmaster-shims/launcher.sh in the app repo).
+# The older GPU-mode tree, Debian's Mesa 22.3.6, for app versions that predate
+# /opt/sb-mesa. Newer apps use it only when /opt/sb-mesa is missing (gpu_env.sh in
+# the app repo). Remove it once those app versions are gone.
 #   /opt/sb-virgl/dri  — Mesa virtio_gpu DRI driver + swrast bootstrap drivers
 #   /opt/sb-virgl/lib  — libGL/libEGL/libGLES* + their transitive deps (libdrm, llvm)
 #   /opt/sb-virgl/bin  — eglinfo / es2_info diagnostics
-# Source = stock Debian Mesa 22.3.6, same version used to build virglrenderer_sb,
-# so wire-protocol matches across the vtest socket.
 # Runs after every apt upgrade, so the copies match the libraries in
 # /usr/lib, and before the OSMesa redirects below, so it copies the real
 # GLVND and GLES libraries rather than the redirect targets.
@@ -193,6 +210,37 @@ RUN mkdir -p /opt/sb-virgl/dri /opt/sb-virgl/lib /opt/sb-virgl/bin && \
     chmod +x /opt/sb-virgl/bin/* && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     du -sh /opt/sb-virgl
+
+# /opt/sb-mesa: the GPU-mode tree. The app prefers it to /opt/sb-virgl. Mesa's own
+# files come from the sb-mesa-fetch stage. GLVND, the GLES1 library, the Vulkan loader
+# and the tools are added here from Debian, with their copyright files, before the
+# OSMesa redirects below, so the real GLVND libraries are copied.
+# The unversioned names are for games that dlopen them (DarkPlaces opens
+# libGLESv2.so); without them the loader finds the rootfs's OSMesa wrapper.
+# Each link is one hop: proot gives up on chains of three.
+COPY --from=sb-mesa-fetch /out/opt/sb-mesa /opt/sb-mesa
+RUN for lib in libGL.so.1 libGLX.so.0 libGLdispatch.so.0 libEGL.so.1 libGLESv2.so.2; do \
+        cp -L "/usr/lib/aarch64-linux-gnu/$lib" /opt/sb-mesa/lib/ || exit 1; \
+    done && \
+    apt-get update && \
+    cd /tmp && apt-get download libgles1 libvulkan1 mesa-utils-bin && \
+    for p in libgles1 libvulkan1 mesa-utils-bin; do dpkg-deb -x ${p}_*.deb /tmp/$p || exit 1; done && \
+    cp -L /tmp/libgles1/usr/lib/aarch64-linux-gnu/libGLESv1_CM.so.1 /opt/sb-mesa/lib/ && \
+    cp -L /tmp/libvulkan1/usr/lib/aarch64-linux-gnu/libvulkan.so.1 /opt/sb-mesa/lib/ && \
+    cp /tmp/libvulkan1/usr/share/doc/libvulkan1/copyright /opt/sb-mesa/licenses/vulkan-loader-copyright && \
+    cp /tmp/libgles1/usr/share/doc/libgles1/copyright /opt/sb-mesa/licenses/glvnd-copyright && \
+    mkdir -p /opt/sb-mesa/bin && \
+    cp -L /tmp/mesa-utils-bin/usr/bin/es2_info.aarch64-linux-gnu /opt/sb-mesa/bin/es2_info && \
+    cp -L /tmp/mesa-utils-bin/usr/bin/eglinfo.aarch64-linux-gnu /opt/sb-mesa/bin/eglinfo && \
+    cp /tmp/mesa-utils-bin/usr/share/doc/mesa-utils-bin/copyright /opt/sb-mesa/licenses/mesa-utils-copyright && \
+    rm -rf /tmp/libgles1 /tmp/libvulkan1 /tmp/mesa-utils-bin /tmp/*.deb && cd / && \
+    cd /opt/sb-mesa/lib && \
+    ln -sf libGL.so.1 libGL.so && \
+    ln -sf libEGL.so.1 libEGL.so && \
+    ln -sf libGLESv2.so.2 libGLESv2.so && \
+    ln -sf libGLESv1_CM.so.1 libGLESv1_CM.so && cd / && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    du -sh /opt/sb-mesa
 
 # Compat symlinks for ports that link against unversioned / wrong-soname libs.
 # Done AFTER all apt operations because apt-get install runs ldconfig, which
