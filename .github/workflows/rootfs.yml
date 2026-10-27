@@ -264,4 +264,5 @@ jobs:
           jq -n --arg tag "$TAG" --arg url "$RELEASE_URL" '
             {content: "**Starboard runtime \($tag) has dropped!** 🚀\n\($url)",
              allowed_mentions: {parse: []}}' |
-            curl -fsS -H 'Content-Type: application/json' --data @- "$WEBHOOK_URL"
+            curl -fsS --retry 3 --retry-all-errors -H 'Content-Type: application/json' \
+              --data @- "$WEBHOOK_URL"
