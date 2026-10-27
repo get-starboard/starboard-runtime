@@ -1,11 +1,11 @@
 # starboard-runtime
 
-[![Build](https://github.com/davestephens/starboard-runtime/actions/workflows/rootfs.yml/badge.svg)](https://github.com/davestephens/starboard-runtime/actions/workflows/rootfs.yml)
+[![Build](https://github.com/get-starboard/starboard-runtime/actions/workflows/rootfs.yml/badge.svg)](https://github.com/get-starboard/starboard-runtime/actions/workflows/rootfs.yml)
 [![Latest release](https://img.shields.io/github/v/release/get-starboard/starboard-runtime?label=release)](https://github.com/get-starboard/starboard-runtime/releases/latest)
 
 Runtime distribution for [Starboard](https://github.com/get-starboard/starboard) — an Android app that runs PortMaster Linux games on ARM64 handhelds via proot.
 
-This is the private source repo: CI builds the Debian ARM64 rootfs here and publishes the release to the public [get-starboard/starboard-runtime](https://github.com/get-starboard/starboard-runtime) repo, which the Starboard app downloads and extracts on first launch. The rootfs provides the glibc + SDL2 + Mesa environment that PortMaster ports expect.
+CI builds the Debian ARM64 rootfs here and publishes it as a release of this repo, which the Starboard app downloads and extracts on first launch. The rootfs provides the glibc + SDL2 + Mesa environment that PortMaster ports expect.
 
 ## Download
 
@@ -16,6 +16,8 @@ https://github.com/get-starboard/starboard-runtime/releases/latest/download/star
 ```
 
 The Starboard app downloads this automatically on first launch (~200 MB compressed, ~400 MB extracted).
+
+Releases are tagged `starboard-rootfs-YYYYMMDD.N`, and the newest is always available via the `releases/latest/download/` URL above.
 
 ## Contents
 
@@ -33,6 +35,16 @@ The Starboard app downloads this automatically on first launch (~200 MB compress
 
 See [Dockerfile](Dockerfile) for the full package list and build steps.
 
+## Version metadata
+
+Each rootfs carries `/etc/starboard-release`, which the app reads and surfaces in its Settings screen:
+
+```
+release=starboard-rootfs-YYYYMMDD.N
+commit=<source commit sha>
+built=<ISO 8601 build timestamp>
+```
+
 ## Building locally
 
 Requires Docker with ARM64/QEMU support.
@@ -49,7 +61,7 @@ Output: `rootfs.tar.gz` in the repo root.
 
 ## CI
 
-Any push to `main` (except README-only changes) triggers a build. Each successful build creates a new versioned release tagged `starboard-rootfs-YYYYMMDD.N` and publishes it as the latest release on the public [get-starboard/starboard-runtime](https://github.com/get-starboard/starboard-runtime) repo (via the `RELEASE_REPO_TOKEN` fine-grained PAT).
+Any push to `main` (except README-only changes) triggers a build. Each successful build creates a new versioned release tagged `starboard-rootfs-YYYYMMDD.N` and publishes it as this repo's latest release. Pull request builds are uploaded as a workflow artifact for device testing and never published.
 
 The `announce` job then posts the new release to the Starboard Discord. It only runs for builds of `main` that created a release, so branch dispatches don't post. If the post fails, "Re-run failed jobs" retries only the post. "Re-run all jobs" publishes and announces a new `.N` release. The webhook URL is the `DISCORD_RELEASE_WEBHOOK_URL` repo secret.
 

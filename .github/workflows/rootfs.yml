@@ -214,13 +214,9 @@ jobs:
         id: publish
         if: github.event_name != 'pull_request'
         env:
-          # Fine-grained PAT scoped to get-starboard/starboard-runtime with
-          # Contents: read+write. Stored in this private repo as
-          # RELEASE_REPO_TOKEN. Mirrors the app repo's release flow: source
-          # builds here (private), the rootfs asset is published to the
-          # public org repo the app downloads from.
-          GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
-          RELEASE_REPO: get-starboard/starboard-runtime
+          # Releases go to this repo; the app downloads from its latest release.
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REPO: ${{ github.repository }}
         run: |
           CREATED=false
           if gh release view "$TAG" --repo "$RELEASE_REPO" >/dev/null 2>&1; then
