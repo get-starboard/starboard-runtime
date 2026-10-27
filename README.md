@@ -23,10 +23,10 @@ Releases are tagged `starboard-rootfs-YYYYMMDD.N`, and the newest is always avai
 
 - Debian bookworm-slim ARM64 base
 - SDL2 family, Python 3, Mesa/OSMesa, OpenAL, common media libs
-- `/opt/sb-mesa`: the GPU-mode GL stack. Mesa 26.2.4 with virgl, Zink, llvmpipe
-  (LLVM linked in) and Turnip, built by [get-starboard/starboard-third-party](https://github.com/get-starboard/starboard-third-party)
-  (`mesa/`, release `mesa-26.2.4-sb2`) and pinned in the Dockerfile by SHA-256, plus
-  Debian's GLVND, Vulkan loader and `eglinfo`/`es2_info`
+- `/opt/sb-mesa`: the GPU-mode GL stack. Starboard's Mesa build with virgl, Zink,
+  llvmpipe (LLVM linked in) and Turnip, built by [get-starboard/starboard-third-party](https://github.com/get-starboard/starboard-third-party)
+  (`mesa/`) and pinned in the Dockerfile by `SB_MESA_TAG` and SHA-256, plus Debian's
+  GLVND, Vulkan loader and `eglinfo`/`es2_info`
 - `/opt/sb-virgl`: the older GPU-mode payload (Debian's Mesa 22.3.6), kept for app
   versions that predate `/opt/sb-mesa`
 - Love2D 11.5 runtime
@@ -77,7 +77,7 @@ unmodified with its upstream licence alongside it:
 |---|---|---|
 | `runtimes/gmloadernext` | GPL-2.0-only | GMLoader-Next, the GameMaker runtime. `SOURCE.txt` names the upstream repository and build commit; `THIRD_PARTY_NOTICES.txt` covers the libraries compiled into it |
 | `runtimes/love_11.5` | zlib | LÖVE |
-| `opt/sb-mesa` (Mesa's files) | MIT, with some files under other permissive licences | Starboard's build of Mesa 26.2.4, unmodified source, with LLVM 19 (Apache-2.0 with LLVM exceptions) linked into `libgallium`. `opt/sb-mesa/licenses/` and `SOURCE.txt` give the licence, source tarball and SHA-256, and build options. The Vulkan loader (`libvulkan.so.1`, Apache-2.0) and GLVND (MIT-style) beside it are Debian's |
+| `opt/sb-mesa` (Mesa's files) | MIT, with some files under other permissive licences | Starboard's build of Mesa, unmodified source, with LLVM (Apache-2.0 with LLVM exceptions) linked into `libgallium`. `opt/sb-mesa/licenses/` and `SOURCE.txt` give the licence, source tarball and SHA-256, and build options. The Vulkan loader (`libvulkan.so.1`, Apache-2.0) and GLVND (MIT-style) beside it are Debian's |
 | `tools/gmtoolkit` | GPL-3.0-or-later (combined) | Offline GameMaker data-file converter. Mixed-licensed upstream: MIT, MPL-2.0 and GPL-3.0-or-later subtrees. `SOURCE.txt` names the upstream repository and build commit, as GPLv3 §6 requires |
 
 Everything else in the image comes from Debian packages under their own

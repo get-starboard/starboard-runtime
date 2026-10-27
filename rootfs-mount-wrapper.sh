@@ -1,16 +1,8 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Starboard mount wrapper, installed as /usr/local/bin/mount in the rootfs.
-#
-# proot runs in userspace and cannot perform real kernel mounts, so any port
-# script that calls `mount` would fail. This wrapper intercepts those calls:
-#
-#   - squashfs sources  → extracted with unsquashfs into the destination dir
-#   - everything else   → silently succeed (proc, dev, tmpfs, etc. — proot
-#                         already fakes these; we just need to not abort)
-#
-# mount's argument order is always: [flags...] <source> <destination>
-# so we grab the last two positional args regardless of what flags precede them.
+# proot can't mount, so a squashfs source is extracted to the destination with
+# unsquashfs and any other mount succeeds (logged). Source and destination are the last two args.
 
 log() { echo "[Starboard] mount: $*" >&2; }
 
@@ -33,8 +25,6 @@ if [ "$IS_SQ" = "0" ] && [ -f "$SRC" ]; then
         IS_SQ=1
     fi
 fi
-
-# --- Squashfs handling ---
 
 if [ "$IS_SQ" = "1" ]; then
     # Names the squashfs last extracted here, so a re-run skips extraction.

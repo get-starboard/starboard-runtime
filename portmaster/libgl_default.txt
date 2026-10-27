@@ -1,6 +1,7 @@
 # Sourced by PortMaster port launchers to pick a GL backend.
 #
-# The launcher exports STARBOARD_GPU_MODE=1 when it has set up a GPU path; leave that alone.
+# gpu_env.sh, sourced by the launcher, exports STARBOARD_GPU_MODE=1 when it has set up
+# a GPU path; leave that alone.
 # Doesn't set up a port's bundled gl4es: its libGL.so.1 would shadow the OSMesa
 # redirect, and it needs an EGL platform headless proot lacks.
 if [ "${STARBOARD_GPU_MODE}" = "1" ]; then

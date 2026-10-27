@@ -160,7 +160,8 @@ RUN echo 'deb [arch=arm64] http://deb.debian.org/debian trixie main' \
     rm /etc/apt/sources.list.d/trixie.list /etc/apt/preferences.d/trixie
 
 # /opt/sb-virgl: Debian's Mesa, for app versions that predate /opt/sb-mesa. Remove it
-# once those are gone. Runs before the OSMesa redirects below, so it copies real GLVND.
+# once those are gone. Runs after every apt upgrade, so the copies match /usr/lib, and
+# before the OSMesa redirects below, so it copies real GLVND.
 # libgles1 is unpacked, not installed: ldconfig would undo the GLES1 OSMesa redirect.
 RUN mkdir -p /opt/sb-virgl/dri /opt/sb-virgl/lib /opt/sb-virgl/bin && \
     cp -L /usr/lib/aarch64-linux-gnu/dri/virtio_gpu_dri.so /opt/sb-virgl/dri/ && \
@@ -244,7 +245,8 @@ RUN mkdir -p /home/user/port /roms/ports /tmp/sb /opt/sb
 
 # PortMaster control directory skeleton.
 # - libgl_default.txt is sourced by port scripts for GL settings.
-# - libs/ is where harbourmaster (shim) downloads runtime squashfs files.
+# - libs/ is where harbourmaster (shim) downloads runtime squashfs files; proot binds
+#   the app's runtimes dir over it.
 # - utils/ is sourced by ports that need first-run installation/patching.
 # - xdelta3 symlink: ports use $controlfolder/xdelta3 to patch game data files.
 # - 7zzs.aarch64 symlink: ports use it to extract bundled archives.
@@ -278,10 +280,7 @@ COPY tools/gmtoolkit/LICENSE.txt /opt/system/Tools/PortMaster/gmtoolkit.LICENSE.
 COPY tools/gmtoolkit/SOURCE.txt /opt/system/Tools/PortMaster/gmtoolkit.SOURCE.txt
 RUN chmod +x /opt/system/Tools/PortMaster/gmtoolkit.aarch64
 
-# mount/umount wrappers: proot cannot perform real kernel mounts so we intercept
-# them here.  squashfs mounts are replaced by unsquashfs extraction (idempotent
-# — already-extracted directories are skipped on re-run).  All other mounts
-# silently succeed so port scripts that test the exit code don't abort.
+# mount and umount wrappers: proot can't mount (see rootfs-mount-wrapper.sh).
 COPY rootfs-mount-wrapper.sh /usr/local/bin/mount
 RUN chmod +x /usr/local/bin/mount
 RUN printf '#!/bin/bash\nexit 0\n' > /usr/local/bin/umount && chmod +x /usr/local/bin/umount
