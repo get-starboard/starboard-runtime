@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Starboard mount wrapper — injected as /bin/mount inside proot.
+# Starboard mount wrapper, installed as /usr/local/bin/mount in the rootfs.
 #
 # proot runs in userspace and cannot perform real kernel mounts, so any port
 # script that calls `mount` would fail. This wrapper intercepts those calls:
@@ -21,18 +21,12 @@ DST="${@: -1}"     # last arg           = destination
 
 [ -z "$SRC" ] && { log "empty source — nothing to do"; exit 0; }
 
-# --- Squashfs detection (two methods) ---
-
 IS_SQ=0
-
-# Method 1: file extension
 case "$SRC" in
     *.squashfs|*.sqsh|*.sfs) IS_SQ=1 ;;
 esac
 
-# Method 2: magic bytes (for squashfs files with non-standard extensions).
-# Squashfs magic is 0x73717368 ("sqsh") or 0x68737173 ("hsqs") depending on
-# endianness. We read 4 bytes and compare as hex.
+# Magic bytes, for squashfs files with other extensions: "hsqs" or "sqsh" by endianness.
 if [ "$IS_SQ" = "0" ] && [ -f "$SRC" ]; then
     MAGIC=$(od -A n -N 4 -t x1 "$SRC" 2>/dev/null | tr -d ' \n')
     if [ "$MAGIC" = "68737173" ] || [ "$MAGIC" = "73717368" ]; then
@@ -43,14 +37,12 @@ fi
 # --- Squashfs handling ---
 
 if [ "$IS_SQ" = "1" ]; then
-    # We track which squashfs was last extracted here via a sentinel file.
-    # This lets us skip re-extraction on subsequent runs (idempotent).
+    # Names the squashfs last extracted here, so a re-run skips extraction.
     SENTINEL="$DST/.starboard_squashfs_src"
     SRC_NAME="$(basename "$SRC")"
 
     NEED_EXTRACT=1
     if [ -f "$SENTINEL" ] && [ "$(cat "$SENTINEL" 2>/dev/null)" = "$SRC_NAME" ]; then
-        # Already extracted from the same squashfs — nothing to do.
         NEED_EXTRACT=0
     fi
 
