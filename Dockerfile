@@ -287,7 +287,7 @@ RUN mkdir -p /opt/system/Tools/PortMaster/libs /opt/system/Tools/PortMaster/util
 
 COPY portmaster/libgl_default.txt /opt/system/Tools/PortMaster/libgl_default.txt
 
-# Love2D 11.5 runtime — pre-built binary + libs copied from scripts/runtimes/love_11.5.
+# Love2D 11.5 runtime — pre-built binary + libs copied from runtimes/love_11.5.
 #   $controlfolder resolves to /opt/system/Tools/PortMaster on Starboard (matched by
 #   the if-block in PortMaster launchers that checks this path first).
 COPY runtimes/love_11.5/ /opt/system/Tools/PortMaster/runtimes/love_11.5/

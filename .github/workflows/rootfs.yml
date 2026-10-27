@@ -13,7 +13,7 @@ on:
 # One build per ref, so a pull request never cancels a build of main.
 concurrency:
   group: rootfs-build-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-and-publish:
@@ -40,7 +40,14 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Generate release tag
-        run: echo "TAG=starboard-rootfs-$(date -u +%Y%m%d).${{ github.run_attempt }}" >> "$GITHUB_ENV"
+        # N is one past today's highest release, so a second build the same day gets its own tag.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          day=$(date -u +%Y%m%d)
+          last=$(gh release list -R "${{ github.repository }}" --limit 100 --json tagName \
+            --jq "[.[].tagName | select(startswith(\"starboard-rootfs-$day.\")) | ltrimstr(\"starboard-rootfs-$day.\") | tonumber] | max // 0")
+          echo "TAG=starboard-rootfs-$day.$((last + 1))" >> "$GITHUB_ENV"
 
       - name: Build rootfs
         env:
@@ -193,9 +200,8 @@ jobs:
         run: mv rootfs.tar.gz starboard-rootfs.tar.gz
 
       - name: Generate SHA-256 sidecar
-        # The app downloads <asset>.sha256 next to the tarball and verifies
-        # the download (EngineSetupRepository in the app repo). Missing
-        # sidecar is non-fatal there, so releases predating this keep working.
+        # The app verifies the download against this (EngineSetupRepository in
+        # the app repo); a missing sidecar is non-fatal.
         run: sha256sum starboard-rootfs.tar.gz > starboard-rootfs.tar.gz.sha256
 
       - name: Upload pull request build
@@ -210,9 +216,10 @@ jobs:
           compression-level: 0
           retention-days: 14
 
-      - name: Publish release to public repo
+      - name: Publish release
         id: publish
-        if: github.event_name != 'pull_request'
+        # Only main publishes: the app downloads whatever release is latest.
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           # Releases go to this repo; the app downloads from its latest release.
           GH_TOKEN: ${{ github.token }}

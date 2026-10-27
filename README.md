@@ -15,7 +15,7 @@ The latest rootfs is published as a GitHub Release asset:
 https://github.com/get-starboard/starboard-runtime/releases/latest/download/starboard-rootfs.tar.gz
 ```
 
-The Starboard app downloads this automatically on first launch (~200 MB compressed, ~400 MB extracted).
+The Starboard app downloads this automatically on first launch (~600 MB compressed, ~1.3 GB extracted).
 
 Releases are tagged `starboard-rootfs-YYYYMMDD.N`, and the newest is always available via the `releases/latest/download/` URL above.
 
@@ -63,7 +63,7 @@ Output: `rootfs.tar.gz` in the repo root.
 
 Any push to `main` (except README-only changes) triggers a build. Each successful build creates a new versioned release tagged `starboard-rootfs-YYYYMMDD.N` and publishes it as this repo's latest release. Pull request builds are uploaded as a workflow artifact for device testing and never published.
 
-The `announce` job then posts the new release to the Starboard Discord. It only runs for builds of `main` that created a release, so branch dispatches don't post. If the post fails, "Re-run failed jobs" retries only the post. "Re-run all jobs" publishes and announces a new `.N` release. The webhook URL is the `DISCORD_RELEASE_WEBHOOK_URL` repo secret.
+The `announce` job then posts the new release to the Starboard Discord. It only runs for builds of `main` that created a release. Builds of other branches never publish or post. If the post fails, "Re-run failed jobs" retries only the post. "Re-run all jobs" publishes and announces a new `.N` release. The webhook URL is the `DISCORD_RELEASE_WEBHOOK_URL` repo secret.
 
 ## Licensing
 
