@@ -139,8 +139,8 @@ RUN ldconfig && \
 #   libssl1.1 / libcrypto.so.1.1  — bookworm ships OpenSSL 3 only
 #   FFmpeg 4.x / libavcodec.so.58 — bookworm ships FFmpeg 5.x (.so.59)
 #   libflac8                       — bookworm ships libflac12
-#   libzip4 / libzip.so.4          — bookworm ships libzip5 only; newer gmloadernext.aarch64
-#                                    links against libzip.so.4
+#   libzip4 / libzip.so.4          — bookworm ships libzip5 only; gmloadernext builds that
+#                                    ports bundle link against libzip.so.4
 RUN echo 'deb [arch=arm64] https://archive.debian.org/debian bullseye main' \
         > /etc/apt/sources.list.d/bullseye.list && \
     printf 'Package: *\nPin: release n=bullseye\nPin-Priority: 100\n' \
@@ -293,13 +293,13 @@ COPY portmaster/libgl_default.txt /opt/system/Tools/PortMaster/libgl_default.txt
 COPY runtimes/love_11.5/ /opt/system/Tools/PortMaster/runtimes/love_11.5/
 RUN chmod +x /opt/system/Tools/PortMaster/runtimes/love_11.5/love.aarch64
 
-# gmloadernext.aarch64 — newer GMLoader-Next binary bundled for patching old ports.
-# Some ports ship a legacy 'gmloadernext' binary (no .aarch64 suffix) that uses
-# Android JNI audio and produces no sound outside Android.  game_bridge.cpp detects
-# and replaces those binaries with this one at each launch.
+# gmloadernext.aarch64 — swapped in for ports' bundled gmloadernext(.aarch64) at launch.
+# Must have texhack (.pvr textures); FMOD and video come from plugins ports list.
 RUN mkdir -p /usr/local/lib/starboard
 COPY runtimes/gmloadernext/gmloadernext.aarch64 /usr/local/lib/starboard/gmloadernext.aarch64
 COPY runtimes/gmloadernext/LICENSE.txt /usr/local/lib/starboard/gmloadernext.LICENSE.txt
+COPY runtimes/gmloadernext/SOURCE.txt /usr/local/lib/starboard/gmloadernext.SOURCE.txt
+COPY runtimes/gmloadernext/THIRD_PARTY_NOTICES.txt /usr/local/lib/starboard/gmloadernext.THIRD_PARTY_NOTICES.txt
 RUN chmod +x /usr/local/lib/starboard/gmloadernext.aarch64
 
 # gmtoolkit.aarch64 — offline data.win → game.droid converter, called by

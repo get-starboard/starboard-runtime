@@ -61,7 +61,7 @@ unmodified with its upstream licence alongside it:
 
 | Path | Licence | Notes |
 |---|---|---|
-| `runtimes/gmloadernext` | GPL-2.0 | GMLoader-Next, the GameMaker runtime |
+| `runtimes/gmloadernext` | GPL-2.0-only | GMLoader-Next, the GameMaker runtime. `SOURCE.txt` names the upstream repository and build commit; `THIRD_PARTY_NOTICES.txt` covers the libraries compiled into it |
 | `runtimes/love_11.5` | zlib | LÖVE |
 | `opt/sb-mesa` (Mesa's files) | MIT, with some files under other permissive licences | Starboard's build of Mesa 26.2.4, unmodified source, with LLVM 19 (Apache-2.0 with LLVM exceptions) linked into `libgallium`. `opt/sb-mesa/licenses/` and `SOURCE.txt` give the licence, source tarball and SHA-256, and build options. The Vulkan loader (`libvulkan.so.1`, Apache-2.0) and GLVND (MIT-style) beside it are Debian's |
 | `tools/gmtoolkit` | GPL-3.0-or-later (combined) | Offline GameMaker data-file converter. Mixed-licensed upstream: MIT, MPL-2.0 and GPL-3.0-or-later subtrees. `SOURCE.txt` names the upstream repository and build commit, as GPLv3 §6 requires |

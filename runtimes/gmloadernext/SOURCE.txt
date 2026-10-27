@@ -1,0 +1,19 @@
+gmloadernext — source availability notice (GPL-2.0-only)
+
+The gmloadernext.aarch64 binary in this directory is redistributed unmodified.
+It is licensed GPL-2.0-only (see LICENSE.txt). Third-party code compiled into
+it is listed in THIRD_PARTY_NOTICES.txt.
+
+Upstream project : https://github.com/JohnnyonFlame/gmloader-next
+Built from commit: fc7c7174693497569ca1210e7b55b22d143b57c9 ("Wrap Function_Add")
+                   on branch 2024.14, both embedded in the binary as
+                   GIT_HASH_ and GIT_BRANCH_ symbols
+Build date       : BUILD_DATE_20251118_011931
+Taken from       : the PortMaster catalogue, which ships this build in 121 ports,
+                   at PortsMaster/PortMaster-New commit
+                   45a6cef2a33360ebe270f78ca1185d9d43327a2b, path
+                   ports/plantsvszombiesnd/plantsvszombiesnd/gmloadernext.aarch64
+
+Complete corresponding source for this binary is available at the upstream
+repository above, at the commit named. The 2024.14 branch has since been
+deleted upstream; the commit can still be fetched by its hash.
