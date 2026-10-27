@@ -1,14 +1,11 @@
 # Sourced by PortMaster port launchers to pick a GL backend.
 #
-# This runs after launcher.sh has already set the environment up, so it must
-# not clobber a GPU session: launcher.sh exports STARBOARD_GPU_MODE=1 once it
-# has configured the virgl path, and anything it set is already correct.
-#
-# Deliberately does not set up a port's bundled gl4es. gl4es ships its own
-# libGL.so.1, which would shadow the rootfs's libGL.so.1 -> libOSMesa.so.8
-# redirect, and it needs a real EGL platform that headless proot has not got.
+# gpu_env.sh, sourced by the launcher, exports STARBOARD_GPU_MODE=1 when it has set up
+# a GPU path; leave that alone.
+# Doesn't set up a port's bundled gl4es: its libGL.so.1 would shadow the OSMesa
+# redirect, and it needs an EGL platform headless proot lacks.
 if [ "${STARBOARD_GPU_MODE}" = "1" ]; then
-    : # launcher.sh already selected virgl - leave it alone.
+    :
 else
     export LIBGL_ALWAYS_SOFTWARE=1
     export GALLIUM_DRIVER=llvmpipe

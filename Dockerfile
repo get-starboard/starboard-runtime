@@ -4,16 +4,14 @@
 # Built for arm64/v8a; extracted by the app on first launch via EngineSetupRepository.
 #
 # Build + export:
-#   bash scripts/build-rootfs.sh
+#   bash build-rootfs.sh
 
 # ---------------------------------------------------------------------------
-# Stage: fetch Starboard's Mesa build for /opt/sb-mesa
+# Fetch Starboard's Mesa build for /opt/sb-mesa
 #
-# virgl, Zink, llvmpipe and Turnip, built by get-starboard/starboard-third-party (mesa/)
-# from Mesa's release tarball and pinned here by SHA-256. Building Mesa here would run
-# under emulation on every runtime build.
+# Built by get-starboard/starboard-third-party (mesa/) and pinned here by SHA-256; its
+# drivers are listed in /opt/sb-mesa/DRIVERS. This stage runs natively, without emulation.
 # ---------------------------------------------------------------------------
-# Runs natively: it only downloads and unpacks, so it needs no emulation.
 FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS sb-mesa-fetch
 ARG SB_MESA_TAG=mesa-26.2.4-sb2
 ARG SB_MESA_SHA256=15e9d58ca404394ee9f616919b36fbcb9ff3912570483de92fda9920688ac424
@@ -26,7 +24,7 @@ RUN apt-get update && \
     mkdir /out && tar -xJf /tmp/sb-mesa.tar.xz -C /out
 
 # ---------------------------------------------------------------------------
-# Stage 1: build libjpeg-turbo with JPEG 8 ABI
+# Build libjpeg-turbo with the JPEG 8 ABI
 #
 # Many PortMaster ports link against libjpeg.so.8 and require LIBJPEG_8.0
 # versioned symbols.  Debian only ships the 6.2 ABI (libjpeg62-turbo); the
@@ -49,16 +47,16 @@ RUN wget -q https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/2.1
     cmake --build /build -j$(nproc)
 
 # ---------------------------------------------------------------------------
-# Stage 2: main rootfs
+# Main rootfs
 # ---------------------------------------------------------------------------
 FROM --platform=linux/arm64 debian:bookworm-slim
 
-# Core runtime packages that cover the vast majority of PortMaster ports:
+# Core runtime packages for PortMaster ports:
 #   - SDL2 and companion libs  (video/audio/input)
 #   - Python 3                 (Python-based ports)
 #   - Common media/image libs  (ogg, vorbis, opus, mpg123, flac, png, jpeg)
 #   - speexdsp                 (audio resampling)
-#   - Mesa GL software renderer (OpenGL ports via SDL_VIDEO_DRIVER=offscreen)
+#   - Mesa / OSMesa            (the CPU GL path)
 #   - curl                     (some ports self-update or fetch assets)
 #   - Xvfb, matchbox, libXtst  (Westonpack games: Starboard runs them on a
 #                               virtual X server with a window manager that
@@ -112,14 +110,8 @@ RUN apt-get update && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# RetroArch notes:
-#   - We install the stock Debian retroarch binary (no cores). PortMaster ports
-#     that wrap a libretro core bundle the core .so in the port's own libs/
-#     dir and point retroarch at it with `-L /path/to/core.so`. The frontend
-#     itself is the only system-wide piece needed.
-#   - retroarch writes its config to ~/.config/retroarch/ — `XDG_CONFIG_HOME`
-#     and `HOME` are already set per-launch by launcher.sh so this lands inside
-#     ipcDir, not in any user-visible path.
+# retroarch has no cores: ports bundle their core and pass it with -L. Its config
+# goes to ~/.config/retroarch, in the app's home dir (bound at /home/user).
 
 # Install the JPEG 8 ABI library built above.
 # libjpeg62-turbo (above) provides libjpeg.so.62 / LIBJPEG_6.2.
@@ -154,15 +146,9 @@ RUN echo 'deb [arch=arm64] https://archive.debian.org/debian bullseye main' \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     rm /etc/apt/sources.list.d/bullseye.list /etc/apt/preferences.d/bullseye
 
-# Debian 13 (trixie) — OpenSSL 3.3.x upgrades bookworm's 3.0.x in-place.
-# Same SONAME (libssl.so.3 / libcrypto.so.3); 3.3.x adds OPENSSL_3.1.0,
-# OPENSSL_3.2.0, OPENSSL_3.3.0 versioned symbols that some bundled port libs
-# (e.g. minetest's libcurl.so.4) require. Fully backwards-compatible with
-# anything compiled against 3.0.x.
-# trixie packages may carry a t64 suffix (64-bit time_t ABI transition).
-# libstdc++6: bookworm's GCC 12 build stops at GLIBCXX_3.4.30; ports built on a
-# newer distro need up to 3.4.33. It also brings trixie's libc6 (glibc 2.41), which
-# /opt/sb-mesa needs (GLIBC_2.38): don't pin libc6 back to bookworm.
+# Debian 13 (trixie): OpenSSL 3.3 adds the OPENSSL_3.x symbols some bundled port libs
+# need, and libstdc++6 adds GLIBCXX up to 3.4.33 for ports built on newer distros.
+# libstdc++6 brings trixie's glibc, which /opt/sb-mesa needs: don't pin libc6 back.
 RUN echo 'deb [arch=arm64] http://deb.debian.org/debian trixie main' \
         > /etc/apt/sources.list.d/trixie.list && \
     printf 'Package: *\nPin: release n=trixie\nPin-Priority: 100\n' \
@@ -173,18 +159,10 @@ RUN echo 'deb [arch=arm64] http://deb.debian.org/debian trixie main' \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     rm /etc/apt/sources.list.d/trixie.list /etc/apt/preferences.d/trixie
 
-# The older GPU-mode tree, Debian's Mesa 22.3.6, for app versions that predate
-# /opt/sb-mesa. Newer apps use it only when /opt/sb-mesa is missing (gpu_env.sh in
-# the app repo). Remove it once those app versions are gone.
-#   /opt/sb-virgl/dri  — Mesa virtio_gpu DRI driver + swrast bootstrap drivers
-#   /opt/sb-virgl/lib  — libGL/libEGL/libGLES* + their transitive deps (libdrm, llvm)
-#   /opt/sb-virgl/bin  — eglinfo / es2_info diagnostics
-# Runs after every apt upgrade, so the copies match the libraries in
-# /usr/lib, and before the OSMesa redirects below, so it copies the real
-# GLVND and GLES libraries rather than the redirect targets.
-# libgles1 is unpacked into the payload only. Installed system-wide, a later
-# ldconfig would point libGLESv1_CM.so.1 back at it and undo the OSMesa
-# redirect GLES1 ports need on the CPU path.
+# /opt/sb-virgl: Debian's Mesa, for app versions that predate /opt/sb-mesa. Remove it
+# once those are gone. Runs after every apt upgrade, so the copies match /usr/lib, and
+# before the OSMesa redirects below, so it copies real GLVND.
+# libgles1 is unpacked, not installed: ldconfig would undo the GLES1 OSMesa redirect.
 RUN mkdir -p /opt/sb-virgl/dri /opt/sb-virgl/lib /opt/sb-virgl/bin && \
     cp -L /usr/lib/aarch64-linux-gnu/dri/virtio_gpu_dri.so /opt/sb-virgl/dri/ && \
     cp -L /usr/lib/aarch64-linux-gnu/dri/swrast_dri.so /opt/sb-virgl/dri/ && \
@@ -215,9 +193,8 @@ RUN mkdir -p /opt/sb-virgl/dri /opt/sb-virgl/lib /opt/sb-virgl/bin && \
 # files come from the sb-mesa-fetch stage. GLVND, the GLES1 library, the Vulkan loader
 # and the tools are added here from Debian, with their copyright files, before the
 # OSMesa redirects below, so the real GLVND libraries are copied.
-# The unversioned names are for games that dlopen them (DarkPlaces opens
-# libGLESv2.so); without them the loader finds the rootfs's OSMesa wrapper.
-# Each link is one hop: proot gives up on chains of three.
+# The unversioned names are for games that dlopen them; without them the loader finds
+# the rootfs's OSMesa wrapper. Each link is one hop (see the symlink note below).
 COPY --from=sb-mesa-fetch /out/opt/sb-mesa /opt/sb-mesa
 RUN for lib in libGL.so.1 libGLX.so.0 libGLdispatch.so.0 libEGL.so.1 libGLESv2.so.2; do \
         cp -L "/usr/lib/aarch64-linux-gnu/$lib" /opt/sb-mesa/lib/ || exit 1; \
@@ -243,9 +220,7 @@ RUN for lib in libGL.so.1 libGLX.so.0 libGLdispatch.so.0 libEGL.so.1 libGLESv2.s
     du -sh /opt/sb-mesa
 
 # Compat symlinks for ports that link against unversioned / wrong-soname libs.
-# Done AFTER all apt operations because apt-get install runs ldconfig, which
-# would restore the canonical libGL.so.1 → libGL.so.1.7.0 (GLVND) symlink and
-# undo our OSMesa redirect.
+# Done after all apt operations: ldconfig would point libGL.so.1 back at GLVND.
 #   libSDL2.so      — some ports link against the bare development name.
 #   libGL.so.1      — replace GLVND dispatch with OSMesa (headless proot has no
 #                     EGL/GLX context → GLVND silently drops GL calls → black screen).
@@ -253,10 +228,7 @@ RUN for lib in libGL.so.1 libGLX.so.0 libGLdispatch.so.0 libEGL.so.1 libGLESv2.s
 #   libGLESv2.so    — unversioned soname for ports that link against it directly.
 #                     (libGLESv2.so.2 is overwritten by libGLESv2_wrap.so on-device.)
 #   libGLESv1_CM.so.1, libGLESv1_CM.so — OSMesa redirect for GLES1 ports.
-# Keep every symlink chain here at two hops or fewer. proot resolves paths
-# through its own translation layer and gives up at three chained hops with
-# errno 40 (ELOOP), where a normal loader allows about forty, so both GLESv1
-# names point straight at libOSMesa.so.8.
+# Keep each symlink chain to two hops: proot fails with ELOOP at three.
 RUN ln -sf libSDL2-2.0.so.0 /usr/lib/aarch64-linux-gnu/libSDL2.so && \
     ln -sf libOSMesa.so.8   /usr/lib/aarch64-linux-gnu/libGL.so.1 && \
     ln -sf libOSMesa.so.8   /usr/lib/aarch64-linux-gnu/libOpenGL.so.0 && \
@@ -264,18 +236,17 @@ RUN ln -sf libSDL2-2.0.so.0 /usr/lib/aarch64-linux-gnu/libSDL2.so && \
     ln -sf libOSMesa.so.8   /usr/lib/aarch64-linux-gnu/libGLESv1_CM.so.1 && \
     ln -sf libOSMesa.so.8   /usr/lib/aarch64-linux-gnu/libGLESv1_CM.so
 
-# Create directories that proot bind-mounts into.
-# These must exist as directories in the guest rootfs before proot starts.
-#   /home/user/port  — launcher script path (bind target for portDir)
-#   /roms/ports      — PortMaster convention: GAMEDIR="/$directory/ports/<name>"
-#                      with directory="roms"; portDir is also bound here
-#   /tmp/sb          — IPC files (fb, input.sock, game.log)
-#   /opt/sb          — nativeLibDir (libSDL2_starboard.so, libproot_loader.so, etc.)
+# proot bind targets (sb_proot_args.h in the app repo); they must exist before it starts.
+#   /home/user   — the app's home dir
+#   /roms/ports  — the port's directory (PortMaster's GAMEDIR="/roms/ports/<name>")
+#   /tmp/sb      — IPC files and the launcher
+#   /opt/sb      — the app's native libraries
 RUN mkdir -p /home/user/port /roms/ports /tmp/sb /opt/sb
 
 # PortMaster control directory skeleton.
 # - libgl_default.txt is sourced by port scripts for GL settings.
-# - libs/ is where harbourmaster (shim) downloads runtime squashfs files.
+# - libs/ is where harbourmaster (shim) downloads runtime squashfs files; proot binds
+#   the app's runtimes dir over it.
 # - utils/ is sourced by ports that need first-run installation/patching.
 # - xdelta3 symlink: ports use $controlfolder/xdelta3 to patch game data files.
 # - 7zzs.aarch64 symlink: ports use it to extract bundled archives.
@@ -294,7 +265,7 @@ COPY runtimes/love_11.5/ /opt/system/Tools/PortMaster/runtimes/love_11.5/
 RUN chmod +x /opt/system/Tools/PortMaster/runtimes/love_11.5/love.aarch64
 
 # gmloadernext.aarch64 — swapped in for ports' bundled gmloadernext(.aarch64) at launch.
-# Must have texhack (.pvr textures); FMOD and video come from plugins ports list.
+# Must have texhack (.pvr textures).
 RUN mkdir -p /usr/local/lib/starboard
 COPY runtimes/gmloadernext/gmloadernext.aarch64 /usr/local/lib/starboard/gmloadernext.aarch64
 COPY runtimes/gmloadernext/LICENSE.txt /usr/local/lib/starboard/gmloadernext.LICENSE.txt
@@ -309,20 +280,13 @@ COPY tools/gmtoolkit/LICENSE.txt /opt/system/Tools/PortMaster/gmtoolkit.LICENSE.
 COPY tools/gmtoolkit/SOURCE.txt /opt/system/Tools/PortMaster/gmtoolkit.SOURCE.txt
 RUN chmod +x /opt/system/Tools/PortMaster/gmtoolkit.aarch64
 
-# mount/umount wrappers: proot cannot perform real kernel mounts so we intercept
-# them here.  squashfs mounts are replaced by unsquashfs extraction (idempotent
-# — already-extracted directories are skipped on re-run).  All other mounts
-# silently succeed so port scripts that test the exit code don't abort.
+# mount and umount wrappers: proot can't mount (see rootfs-mount-wrapper.sh).
 COPY rootfs-mount-wrapper.sh /usr/local/bin/mount
 RUN chmod +x /usr/local/bin/mount
 RUN printf '#!/bin/bash\nexit 0\n' > /usr/local/bin/umount && chmod +x /usr/local/bin/umount
 
-# /etc/starboard-release — version metadata read by the Android app
-# (EngineSetupRepository.rootfsRelease()) to display the installed runtime
-# version in Settings. Populated from build args passed by build-rootfs.sh,
-# which derive from CI env (GitHub Actions sets TAG / commit SHA / date).
-# Local docker builds get "dev" placeholders, which is fine — the file is
-# strictly informational on the device side.
+# Read by EngineSetupRepository.rootfsRelease() for Settings. build-rootfs.sh passes
+# these in; local builds get "dev".
 ARG STARBOARD_RELEASE=dev
 ARG STARBOARD_COMMIT=unknown
 ARG STARBOARD_BUILT=unknown

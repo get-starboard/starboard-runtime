@@ -221,17 +221,15 @@ jobs:
         # Only main publishes: the app downloads whatever release is latest.
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
-          # Releases go to this repo; the app downloads from its latest release.
           GH_TOKEN: ${{ github.token }}
-          RELEASE_REPO: ${{ github.repository }}
         run: |
           CREATED=false
-          if gh release view "$TAG" --repo "$RELEASE_REPO" >/dev/null 2>&1; then
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" starboard-rootfs.tar.gz starboard-rootfs.tar.gz.sha256 \
-              --repo "$RELEASE_REPO" --clobber
+              --repo "$GITHUB_REPOSITORY" --clobber
           else
             gh release create "$TAG" starboard-rootfs.tar.gz starboard-rootfs.tar.gz.sha256 \
-              --repo "$RELEASE_REPO" \
+              --repo "$GITHUB_REPOSITORY" \
               --title "$TAG" \
               --notes "Automated rootfs build from commit ${{ github.sha }}" \
               --latest
@@ -239,12 +237,11 @@ jobs:
           fi
           {
             echo "tag=$TAG"
-            echo "url=https://github.com/$RELEASE_REPO/releases/tag/$TAG"
+            echo "url=https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
             echo "created=$CREATED"
           } >> "$GITHUB_OUTPUT"
 
-  # Takes the tag from build-and-publish's output, because a retry bumps
-  # run_attempt and the tag contains it.
+  # Takes the tag from build-and-publish: working it out again would give the next .N.
   announce:
     name: Announce Release On Discord
     needs: build-and-publish
