@@ -51,6 +51,8 @@ Output: `rootfs.tar.gz` in the repo root.
 
 Any push to `main` (except README-only changes) triggers a build. Each successful build creates a new versioned release tagged `starboard-rootfs-YYYYMMDD.N` and publishes it as the latest release on the public [get-starboard/starboard-runtime](https://github.com/get-starboard/starboard-runtime) repo (via the `RELEASE_REPO_TOKEN` fine-grained PAT).
 
+The `announce` job then posts the new release to the Starboard Discord. It only runs for builds of `main` that created a release, so branch dispatches don't post. If the post fails, "Re-run failed jobs" retries only the post. "Re-run all jobs" publishes and announces a new `.N` release. The webhook URL is the `DISCORD_RELEASE_WEBHOOK_URL` repo secret.
+
 ## Licensing
 
 This repository's own contents — the `Dockerfile`, `build-rootfs.sh` and
