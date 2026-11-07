@@ -24,6 +24,23 @@ RUN apt-get update && \
     mkdir /out && tar -xJf /tmp/sb-mesa.tar.xz -C /out
 
 # ---------------------------------------------------------------------------
+# Stage: fetch Starboard's gmloadernext build
+#
+# gmloader-next plus more Steam stubs. Built by get-starboard/starboard-third-party
+# (gmloadernext/) and pinned here by SHA-256. This stage runs natively, without emulation.
+# ---------------------------------------------------------------------------
+FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS sb-gmloadernext-fetch
+ARG SB_GMLOADERNEXT_TAG=gmloadernext-20251118-sb1
+ARG SB_GMLOADERNEXT_SHA256=fa680e8bc17253102560f078133e6b6367883709b0f1ed85e8eb9b14d87afabd
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        curl ca-certificates xz-utils && \
+    curl -fsSL --retry 3 -o /tmp/gmloadernext.tar.xz \
+        "https://github.com/get-starboard/starboard-third-party/releases/download/${SB_GMLOADERNEXT_TAG}/${SB_GMLOADERNEXT_TAG}-aarch64.tar.xz" && \
+    echo "${SB_GMLOADERNEXT_SHA256}  /tmp/gmloadernext.tar.xz" | sha256sum -c - && \
+    mkdir /out && tar -xJf /tmp/gmloadernext.tar.xz -C /out
+
+# ---------------------------------------------------------------------------
 # Build libjpeg-turbo with the JPEG 8 ABI
 #
 # Many PortMaster ports link against libjpeg.so.8 and require LIBJPEG_8.0
@@ -265,12 +282,12 @@ COPY runtimes/love_11.5/ /opt/system/Tools/PortMaster/runtimes/love_11.5/
 RUN chmod +x /opt/system/Tools/PortMaster/runtimes/love_11.5/love.aarch64
 
 # gmloadernext.aarch64 — swapped in for ports' bundled gmloadernext(.aarch64) at launch.
-# Must have texhack (.pvr textures).
+# Must have texhack (.pvr textures) and the Steam stubs games abort without.
 RUN mkdir -p /usr/local/lib/starboard
-COPY runtimes/gmloadernext/gmloadernext.aarch64 /usr/local/lib/starboard/gmloadernext.aarch64
-COPY runtimes/gmloadernext/LICENSE.txt /usr/local/lib/starboard/gmloadernext.LICENSE.txt
-COPY runtimes/gmloadernext/SOURCE.txt /usr/local/lib/starboard/gmloadernext.SOURCE.txt
-COPY runtimes/gmloadernext/THIRD_PARTY_NOTICES.txt /usr/local/lib/starboard/gmloadernext.THIRD_PARTY_NOTICES.txt
+COPY --from=sb-gmloadernext-fetch /out/gmloadernext.aarch64 /usr/local/lib/starboard/gmloadernext.aarch64
+COPY --from=sb-gmloadernext-fetch /out/LICENSE.txt /usr/local/lib/starboard/gmloadernext.LICENSE.txt
+COPY --from=sb-gmloadernext-fetch /out/SOURCE.txt /usr/local/lib/starboard/gmloadernext.SOURCE.txt
+COPY --from=sb-gmloadernext-fetch /out/THIRD_PARTY_NOTICES.txt /usr/local/lib/starboard/gmloadernext.THIRD_PARTY_NOTICES.txt
 RUN chmod +x /usr/local/lib/starboard/gmloadernext.aarch64
 
 # gmtoolkit.aarch64 — offline data.win → game.droid converter, called by

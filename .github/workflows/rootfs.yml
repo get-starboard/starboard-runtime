@@ -124,16 +124,20 @@ jobs:
             echo "ok: $f"
           done
 
-      - name: Verify gmloadernext is the build SOURCE.txt names
+      - name: Verify gmloadernext is the build SOURCE.txt names, with what ports need
         run: |
           set -e
           mkdir -p /tmp/gml-verify
-          tar xzf rootfs.tar.gz -C /tmp/gml-verify 'usr/local/lib/starboard/gmloadernext.aarch64'
-          want=$(grep -o 'BUILD_DATE_[0-9_]*' runtimes/gmloadernext/SOURCE.txt)
+          tar xzf rootfs.tar.gz -C /tmp/gml-verify 'usr/local/lib/starboard/gmloadernext.aarch64' \
+            'usr/local/lib/starboard/gmloadernext.SOURCE.txt'
+          bin=/tmp/gml-verify/usr/local/lib/starboard/gmloadernext.aarch64
+          want=$(grep -oE 'BUILD_DATE_[0-9_]+' /tmp/gml-verify/usr/local/lib/starboard/gmloadernext.SOURCE.txt || true)
           [ -n "$want" ] || { echo "FAIL: SOURCE.txt records no build date" >&2; exit 1; }
-          grep -aq "$want" /tmp/gml-verify/usr/local/lib/starboard/gmloadernext.aarch64 \
-            || { echo "FAIL: gmloadernext.aarch64 is not the $want build in SOURCE.txt" >&2; exit 1; }
-          echo "ok: gmloadernext.aarch64 is $want"
+          strings -a "$bin" > /tmp/gml-verify/strings.txt
+          for name in "$want" disable_texhack steam_lobby_create steam_net_packet_send steam_user_owns_dlc; do
+            grep -qx "$name" /tmp/gml-verify/strings.txt || { echo "FAIL: gmloadernext.aarch64 has no $name" >&2; exit 1; }
+            echo "ok: gmloadernext.aarch64 has $name"
+          done
 
       - name: Verify the GPU-mode GL libraries are real Mesa builds
         run: |
@@ -148,6 +152,18 @@ jobs:
               || { echo "FAIL: opt/sb-virgl/lib/$lib has soname '$soname'" >&2; exit 1; }
             echo "ok: opt/sb-virgl/lib/$lib"
           done
+
+      - name: Verify gmloadernext resolves in the image
+        # It's built on bullseye. This catches a library or symbol the rootfs lacks, which
+        # would otherwise only show when a game starts.
+        run: |
+          docker run --rm --platform linux/arm64 starboard-rootfs:latest sh -c '
+            out=$(ldd -r /usr/local/lib/starboard/gmloadernext.aarch64 2>&1)
+            if echo "$out" | grep -E "not found|undefined symbol"; then
+              echo "FAIL: gmloadernext.aarch64 does not resolve" >&2; exit 1
+            fi
+            echo "ok: gmloadernext.aarch64 resolves"
+          '
 
       - name: Verify every /opt/sb-mesa library resolves in the image
         # Mesa is built on trixie against the rootfs's glibc. This catches a symbol
